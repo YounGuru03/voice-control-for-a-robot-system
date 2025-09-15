@@ -1,312 +1,205 @@
-# Voice Command Tool
+# Voice Command Tool 🎤🤖
 
-A lightweight offline Windows voice command application that uses Whisper for speech recognition and provides a simple GUI interface.
+A **lightweight offline Windows voice command application** powered by [Whisper](https://github.com/openai/whisper) for speech recognition.
+It provides a simple Tkinter-based GUI, processes natural language commands, and outputs results in real time — making it suitable for **robot systems, automation tasks, and personal assistants**.
 
-## Features
+---
 
-- **Offline Speech Recognition**: Uses Whisper-small model for local speech-to-text conversion
-- **No GPU/Cloud Dependencies**: Runs entirely offline without requiring GPU acceleration or internet connectivity
-- **Lightweight GUI**: Simple Tkinter interface with start button, command display, and activity log
-- **Smart NLP Processing**: Cleans transcripts, removes filler words, and maps speech to commands
-- **File Monitoring**: Real-time monitoring of output file (text.txt) with watchdog
-- **Standalone Executable**: Packaged with PyInstaller for easy distribution
+## ✨ Features
 
-## Requirements
+* **Offline Speech Recognition**: Runs the [Whisper-small](https://github.com/openai/whisper) model locally for fast and reliable transcription.
+* **No GPU/Cloud Dependencies**: Works entirely offline without requiring CUDA or internet access.
+* **Lightweight GUI**: Simple Tkinter interface with a start button, command display, and activity log.
+* **Smart NLP Processing**: Cleans transcripts, removes filler words, and maps speech to structured commands.
+* **File Monitoring**: Real-time updates to `text.txt` using `watchdog`.
+* **Cross-platform Development**: Runs on **Windows**, but can be developed/tested in Linux (Codespaces, WSL).
+* **Executable Packaging**: Built into a standalone `.exe` using PyInstaller.
+* **GitHub Actions CI/CD**: Automatically builds Windows executables in the cloud.
 
-- Windows 10/11 x64
-- 4GB RAM minimum
-- Microphone access
-- No Python installation required (when using .exe)
+---
 
-## Installation
+## 🖥️ Requirements
 
-### Option 1: Use Pre-built Executable
-1. Download the `VoiceCommandTool.exe` from the releases
-2. Run the executable directly
-3. No additional installation required
+### Runtime
 
-### Option 2: Run from Source
-1. Install Python 3.8+ 
-2. Install dependencies: `pip install -r requirements.txt`
-3. Run: `python launcher.py`
+* **Windows 10/11 x64** (for `.exe`)
+* **4 GB RAM minimum**
+* **Microphone access**
+* **No Python installation required** (when using pre-built `.exe`)
 
-## Usage
+### Development
 
-1. Launch the application
-2. Click "Start Listening" to begin voice recognition
-3. Speak commands clearly into your microphone
-4. Commands are processed and saved to `text.txt`
-5. View activity in the log window
-6. Use Settings to adjust recognition parameters
+* **Python 3.8+**
+* For Linux (e.g., Codespaces / WSL) development, ensure PortAudio is installed:
 
-## Supported Commands
+  ```bash
+  sudo apt-get update
+  sudo apt-get install portaudio19-dev
+  ```
 
-The application recognizes various command patterns:
+---
 
-### Movement Commands
-- "move forward" / "go ahead"
-- "move back" / "go backward"
-- "turn left" / "turn right"
-- "stop" / "halt"
+## ⚙️ Installation
 
-### Navigation Commands
-- "go home" / "return to base"
-- "go to [location]"
+### Option 1: Pre-built Executable (Recommended for End Users)
 
-### System Commands
-- "start" / "begin"
-- "shutdown" / "power off"
-- "restart" / "reboot"
+1. Download `VoiceCommandTool.exe` from the [Releases](../../releases) page.
+2. Run the executable directly.
+3. No additional setup required.
 
-### Application Commands
-- "open main" / "launch application"
-- "close main" / "exit application"
-- "minimize" / "maximize"
+### Option 2: Run from Source (For Developers)
 
-### Robot-Specific Commands
-- "pick up" / "grab"
-- "put down" / "drop"
-- "lift" / "raise"
-- "lower" / "descend"
+1. Clone the repository:
 
-### Status Commands
-- "status" / "how are you"
-- "help" / "what can you do"
+   ```bash
+   git clone https://github.com/your-username/voice-command-tool.git
+   cd voice-command-tool
+   ```
+2. Install dependencies (Linux users: install PortAudio first, see above):
 
-## Performance
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Run the application:
 
-- **Latency**: < 2 seconds for speech-to-command processing
-- **Memory**: Optimized for 4GB RAM systems
-- **CPU**: Works on standard x64 processors without GPU
-- **Model**: Uses Whisper-small for balance of accuracy and speed
+   ```bash
+   python launcher.py
+   ```
 
-## Building from Source
+---
 
-Prerequisites
+## ▶️ Usage
 
-    A GitHub account.
+1. Launch the application.
+2. Click **Start Listening**.
+3. Speak clearly into your microphone.
+4. Recognized commands are processed and written to `text.txt`.
+5. Monitor activities in the log window.
+6. Adjust recognition parameters in `config.json`.
 
-    This repository opened in a GitHub Codespace, or a similar Debian/Ubuntu-based Linux environment for development.
+---
 
-Part 1: Setting Up the Development Environment (Codespaces / Linux)
+## 🎙️ Supported Commands
 
-The application requires specific system and Python environment configurations to work correctly. The following steps ensure that all dependencies can be installed and that the environment is ready for testing and packaging.
-Step 1: Install System Dependencies for Audio Processing
+### Movement
 
-Our project uses the pyaudio library, which requires the PortAudio system library. You must install its development headers before installing the Python packages.
+* `move forward`, `go ahead`
+* `move back`, `go backward`
+* `turn left`, `turn right`
+* `stop`, `halt`
 
-In your Codespaces terminal, run the following commands:
-code Bash
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
+### Navigation
 
-    
-### Update package lists
-sudo apt-get update
+* `go home`, `return to base`
+* `go to [location]`
 
-### Install PortAudio development headers
-sudo apt-get install -y portaudio19-dev
+### System
 
-  
+* `start`, `begin`
+* `shutdown`, `power off`
+* `restart`, `reboot`
 
-Step 2: Install and Configure pyenv for Python Management
+### Application
 
-To package applications with PyInstaller on Linux, the Python interpreter must be compiled with a shared library (--enable-shared). The default Python in many environments lacks this. We will use pyenv to install a correctly configured version of Python.
+* `open main`, `launch application`
+* `close main`, `exit application`
+* `minimize`, `maximize`
 
-    Install pyenv and its build dependencies:
-    code Bash
+### Robot-Specific
 
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
+* `pick up`, `grab`
+* `put down`, `drop`
+* `lift`, `raise`
+* `lower`, `descend`
 
-    
-sudo apt-get install -y build-essential libssl-dev zlib1g-dev \
-libbz2-dev libreadline-dev libsqlite3-dev curl \
-libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
+### Status
 
-  
+* `status`, `how are you`
+* `help`, `what can you do`
 
-Run the official pyenv installer:
-code Bash
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
+---
 
-    
-curl https://pyenv.run | bash
+## 📊 Performance
 
-  
+* **Latency**: < 2 seconds (speech → command).
+* **Memory**: Optimized for 4GB RAM.
+* **CPU**: Works on standard x64 processors without GPU.
+* **Model**: Whisper-small (balanced accuracy & speed).
 
-Configure your shell environment for pyenv:
-Note: This adds the necessary configuration to your .bashrc file. These changes will apply the next time you open a terminal.
-code Bash
+---
 
-    IGNORE_WHEN_COPYING_START
-    IGNORE_WHEN_COPYING_END
+## 🔨 Building from Source
 
-        
-    echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bashrc
-    echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bashrc
-    echo 'eval "$(pyenv init -)"' >> ~/.bashrc
+### Local Build
 
-      
+1. Install dependencies:
 
-    Restart your terminal for the changes to take effect. You can do this by typing exec "$SHELL" or by closing and reopening the terminal pane in Codespaces.
+   ```bash
+   pip install -r requirements.txt
+   ```
+2. Run build script:
 
-Step 3: Install a Shared-Library Python Version
+   ```bash
+   python build.py
+   ```
+3. Find the `.exe` in the `dist/` directory.
 
-Now, use pyenv to install a specific Python version (e.g., 3.12.1), ensuring the --enable-shared flag is used.
+### Common Build Issues & Fixes
 
-    Install Python:
-    code Bash
+* **PyAudio Installation Failure (Linux / Codespaces)**
+  Install PortAudio before dependencies:
 
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
+  ```bash
+  sudo apt-get install portaudio19-dev
+  pip install -r requirements.txt
+  ```
+* **PyInstaller Error: Python built without shared library**
+  Use [pyenv](https://github.com/pyenv/pyenv) to install Python with `--enable-shared`:
 
-    
-### This command tells pyenv to use the --enable-shared option during compilation
-PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install 3.12.1
+  ```bash
+  PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install 3.12.1
+  pyenv global 3.12.1
+  ```
 
-  
+---
 
-Set the new Python version as the global default:
-code Bash
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
+## 🤖 GitHub Actions: Automated Windows Build
 
-    
-pyenv global 3.12.1
+This repository includes a **GitHub Actions workflow** to automatically build `.exe` files on Windows:
 
-  
+1. Workflow file: `.github/workflows/build-windows-exe.yml`
+2. Trigger manually via **Actions > Build Windows Executable > Run workflow**.
+3. After successful build, download the artifact `windows-executable` containing `VoiceCommandTool.exe`.
 
-Verify your Python installation:
-Close and reopen the terminal again. Then check your version and path.
-code Bash
+Benefits:
 
-    IGNORE_WHEN_COPYING_START
-    IGNORE_WHEN_COPYING_END
+* Automated & repeatable builds.
+* Clean Windows build environment.
+* No local setup required.
 
-        
-    # Should show '3.12.1'
-    python --version
+---
 
-    # Should point to the pyenv shims directory
-    # e.g., /home/codespace/.pyenv/shims/python
-    which python
+## 🗂️ File Structure
 
-      
+```
+voice-control-for-a-robot-system/
+├── main.py              # Main GUI application
+├── voice_processor.py   # Whisper speech recognition
+├── nlp_processor.py     # NLP processing and command mapping
+├── file_monitor.py      # Real-time file watcher
+├── launcher.py          # Entry point with error handling
+├── build.py             # PyInstaller build script
+├── test_components.py   # Component testing
+├── requirements.txt     # Python dependencies
+├── text.txt             # Output file (generated at runtime)
+└── config.json          # Configuration (generated at runtime)
+```
 
-Step 4: Install Project Dependencies
+---
 
-With the correct system libraries and Python version in place, you can now install the Python packages listed in requirements.txt.
-code Bash
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
+## ⚙️ Configuration
 
-    
-pip install -r requirements.txt
-
-  
-
-Your development environment is now fully configured! You can run the application locally for testing purposes.
-Part 2: Building the Windows Executable (.exe)
-
-PyInstaller cannot cross-compile; it can only build an executable for the operating system it is running on. Since our development environment is Linux, we will use GitHub Actions to automatically build the .exe on a fresh Windows virtual machine.
-Step 1: Create the GitHub Action Workflow File
-
-    In the root of your repository, create a new directory named .github.
-
-    Inside .github, create another directory named workflows.
-
-    Inside .github/workflows, create a new file named build-windows-exe.yml.
-
-The final path should be: .github/workflows/build-windows-exe.yml
-Step 2: Add the Workflow Configuration
-
-Copy and paste the following code into your build-windows-exe.yml file.
-
-Important: Change the placeholder your_main_script.py to the actual filename of your main Python script.
-code Yaml
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-
-    
-name: Build Windows Executable
-
-### This allows you to manually trigger the build from the Actions tab
-on:
-  workflow_dispatch:
-
-jobs:
-  build-on-windows:
-    # Use the latest Windows environment provided by GitHub
-    runs-on: windows-latest
-
-    steps:
-      # Step 1: Get the repository code
-      - name: Check out repository code
-        uses: actions/checkout@v4
-
-      # Step 2: Set up a Python environment
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12' # Match your development Python version
-
-      # Step 3: Install project dependencies
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      # Step 4: Build the executable with PyInstaller
-      - name: Build with PyInstaller
-        run: |
-          # --onefile: Create a single executable file.
-          # --windowed: For GUI apps; prevents a console window from appearing. Remove if your app is console-based.
-          # --name: The name of the final .exe file.
-          pyinstaller --onefile --windowed --name VoiceCommandTool your_main_script.py # <-- CHANGE THIS FILENAME
-
-      # Step 5: Upload the .exe as a build artifact
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          # This is the name of the downloadable file in GitHub
-          name: windows-executable
-          # This is the path to the file generated by PyInstaller
-          path: dist/VoiceCommandTool.exe
-
-  
-
-Step 3: Run the Workflow and Download the .exe
-
-    Commit and push the new .github/workflows/build-windows-exe.yml file to your repository.
-    code Bash
-
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-
-    
-git add .github/workflows/build-windows-exe.yml
-git commit -m "Add GitHub Action workflow for Windows build"
-git push
-
-  
-
-Navigate to the "Actions" tab in your GitHub repository.
-
-In the left sidebar, you will see a workflow named "Build Windows Executable". Click on it.
-
-You will see a message: "This workflow has a workflow_dispatch event trigger." Click the "Run workflow" button on the right.
-
-The build process will start. Wait for it to complete (it will get a green checkmark).
-
-Once finished, a section named "Artifacts" will appear on the summary page for that run. Click on "windows-executable" to download a .zip file containing your VoiceCommandTool.exe.
-
-
-
-## Configuration
-
-The application creates a `config.json` file for settings:
+Example `config.json`:
 
 ```json
 {
@@ -315,26 +208,16 @@ The application creates a `config.json` file for settings:
 }
 ```
 
-## File Structure
+---
 
-```
-voice-control-for-a-robot-system/
-├── main.py              # Main application GUI
-├── voice_processor.py   # Whisper speech recognition
-├── nlp_processor.py     # Text processing and command mapping
-├── file_monitor.py      # File watching functionality
-├── launcher.py          # Application launcher with error checking
-├── build.py            # PyInstaller build script
-├── test_components.py  # Component testing script
-├── requirements.txt    # Python dependencies
-├── text.txt           # Command output file (created at runtime)
-└── config.json        # Configuration file (created at runtime)
-```
+## 📜 License
 
-## License
+This project is licensed under the [MIT License](LICENSE).
 
-MIT License - see LICENSE file for details.
+---
 
-## Support
+## 🙋 Support
 
-For issues and support, please refer to the project repository.
+* For bug reports, please open an [Issue](../../issues).
+* For discussions, use the [GitHub Discussions](../../discussions) tab.
+* Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
