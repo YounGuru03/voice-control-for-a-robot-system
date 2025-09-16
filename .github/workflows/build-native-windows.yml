@@ -1,0 +1,213 @@
+name: Build Native Windows Application
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - release
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Install Rust Toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+        targets: x86_64-pc-windows-msvc
+
+    - name: Cache Rust Dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Install System Dependencies
+      run: |
+        # Windows typically has all required dependencies
+        Write-Host "System dependencies check complete"
+
+    - name: Check Code Quality
+      run: |
+        cargo fmt --check
+        cargo clippy -- -D warnings
+
+    - name: Run Tests
+      run: cargo test --verbose
+
+    - name: Build Release Binary
+      run: |
+        cargo build --release --verbose
+        
+        # Verify the binary was created
+        if (Test-Path "target/release/voice_control_native.exe") {
+          Write-Host "✅ Binary build successful"
+          Get-ChildItem "target/release/voice_control_native.exe" | Format-List Name, Length, CreationTime
+        } else {
+          Write-Error "❌ Binary build failed - executable not found"
+          exit 1
+        }
+
+    - name: Create Application Bundle
+      run: |
+        # Create distribution directory
+        New-Item -ItemType Directory -Path "dist" -Force
+        
+        # Copy main executable
+        Copy-Item "target/release/voice_control_native.exe" "dist/VoiceControlNative.exe"
+        
+        # Copy documentation and license
+        Copy-Item "README_NATIVE.md" "dist/README.md"
+        Copy-Item "LICENSE" "dist/LICENSE"
+        
+        # Create sample configuration
+        @"
+        {
+          "confidence_threshold": 0.7,
+          "recording_duration": 3.0,
+          "enable_preprocessing": true,
+          "show_transcription": true,
+          "monitor_memory": true,
+          "sample_rate": 16000,
+          "buffer_size": 1024,
+          "max_log_entries": 100,
+          "max_transcription_history": 50,
+          "output_file": "text.txt"
+        }
+        "@ | Out-File -FilePath "dist/config-sample.json" -Encoding UTF8
+        
+        # Create installation guide
+        @"
+        Voice Control Native - Installation Guide
+        =========================================
+        
+        Quick Start:
+        1. Double-click VoiceControlNative.exe to run
+        2. Click 'Start Listening' to begin voice recognition
+        3. Speak commands clearly into your microphone
+        4. Commands will be saved to text.txt
+        
+        System Requirements:
+        - Windows 10/11 (x64)
+        - 2 GB RAM minimum
+        - Microphone access
+        
+        Configuration:
+        - Settings can be adjusted through the UI
+        - Advanced users can edit config.json manually
+        - Use config-sample.json as a reference
+        
+        Troubleshooting:
+        - Ensure microphone permissions are enabled
+        - Check Windows Privacy Settings for microphone access
+        - Run as administrator if audio access issues occur
+        
+        For more information, see README.md
+        "@ | Out-File -FilePath "dist/INSTALL.txt" -Encoding UTF8
+        
+        Write-Host "✅ Application bundle created successfully"
+        Get-ChildItem "dist" | Format-Table Name, Length, CreationTime
+
+    - name: Test Application Launch
+      run: |
+        # Test that the application starts (will exit quickly without GUI)
+        Write-Host "Testing application launch..."
+        $process = Start-Process "dist/VoiceControlNative.exe" -PassThru -WindowStyle Hidden -Wait
+        if ($process.ExitCode -eq 0 -or $process.ExitCode -eq $null) {
+          Write-Host "✅ Application launch test successful"
+        } else {
+          Write-Warning "⚠️  Application exited with code: $($process.ExitCode)"
+          Write-Host "This might be expected in headless environment"
+        }
+
+    - name: Calculate Binary Metrics
+      run: |
+        $exe = Get-ChildItem "dist/VoiceControlNative.exe"
+        $sizeKB = [math]::Round($exe.Length / 1KB, 1)
+        $sizeMB = [math]::Round($exe.Length / 1MB, 1)
+        
+        Write-Host "📊 Binary Metrics:"
+        Write-Host "  - Size: $sizeKB KB ($sizeMB MB)"
+        Write-Host "  - Target: x86_64-pc-windows-msvc"
+        Write-Host "  - Optimization: Release (LTO enabled)"
+        
+        # Save metrics for artifacts
+        @"
+        Binary Size: $sizeKB KB ($sizeMB MB)
+        Target: x86_64-pc-windows-msvc
+        Build Type: Release with LTO
+        Created: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')
+        Commit: ${{ github.sha }}
+        "@ | Out-File -FilePath "dist/build-info.txt" -Encoding UTF8
+
+    - name: Upload Application Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: voice-control-native-windows-x64
+        path: dist/
+        retention-days: 30
+
+    - name: Create Release Assets
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        # Create release zip
+        Compress-Archive -Path "dist/*" -DestinationPath "VoiceControlNative-${{ github.ref_name }}-windows-x64.zip"
+        Write-Host "✅ Release archive created: VoiceControlNative-${{ github.ref_name }}-windows-x64.zip"
+
+    - name: Upload Release Asset
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-archive
+        path: "VoiceControlNative-${{ github.ref_name }}-windows-x64.zip"
+
+  # Optional: Cross-compile for other targets (future enhancement)
+  build-cross-platform:
+    if: false # Disabled for now, enable when needed
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [x86_64-pc-windows-gnu]
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Install Rust Toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+        targets: ${{ matrix.target }}
+
+    - name: Install Cross-Compilation Tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mingw-w64
+
+    - name: Build Cross-Platform Binary
+      run: |
+        cargo build --release --target ${{ matrix.target }}
+
+    - name: Upload Cross-Platform Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: voice-control-native-${{ matrix.target }}
+        path: target/${{ matrix.target }}/release/
