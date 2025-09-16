@@ -24,58 +24,59 @@ class NLPProcessor:
             'right', 'okay', 'ok', 'yeah', 'yes', 'yep', 'sure', 'uhm', 'hmm'
         }
         
-        # Command mapping patterns (intent -> command)
+        # Command mapping patterns (intent -> command) - Updated per requirements
         self.command_patterns = {
-            # Movement commands
-            r'\b(move|go|walk|run|drive)\s+(forward|ahead|front)\b': 'move forward',
-            r'\b(move|go|walk|run|drive)\s+(backward|back|backwards)\b': 'move back',
-            r'\b(turn|rotate|spin)\s+(left|port)\b': 'turn left',
-            r'\b(turn|rotate|spin)\s+(right|starboard)\b': 'turn right',
-            r'\b(stop|halt|brake|pause)\b': 'stop',
+            # Main application commands
+            r'\b(open|launch|start)\s+(main)\b': 'open main',
+            r'\b(open|launch|start)\s+(lamp)\b': 'open lamp',
+            r'\b(open|launch|start)\s+(robot\s+cell)\b': 'open robot cell',
+            r'\b(open|launch|start)\s+(robot)\b': 'open robot',
             
-            # Navigation commands
-            r'\b(go|move|navigate)\s+to\s+(home|base|start)\b': 'go home',
-            r'\b(return|go back)\s+(home|base)?\b': 'go home',
+            # Numbered open commands
+            r'\b(open|launch|start)\s+(1|one)\b': 'open 1',
+            r'\b(open|launch|start)\s+(2|two)\b': 'open 2',
             
             # System commands
-            r'\b(start|begin|initialize|power on)\b': 'start',
-            r'\b(shutdown|power off|turn off|quit|exit)\b': 'shutdown',
-            r'\b(restart|reboot|reset)\b': 'restart',
+            r'\b(alarm|alert)\b': 'alarm',
+            r'\b(open|launch|start)\s+(train)\b': 'open train',
+            r'\b(open|launch|start)\s+(report)\b': 'open report',
+            r'\b(open|launch|start)\s+(record)\b': 'open record',
             
-            # Application commands
-            r'\b(open|launch|start)\s+(main|application|app|program)\b': 'open main',
-            r'\b(close|exit|quit)\s+(main|application|app|program)\b': 'close main',
-            r'\b(minimize|hide)\b': 'minimize',
-            r'\b(maximize|show|expand)\b': 'maximize',
+            # User management commands
+            r'\b(open|launch|start)\s+(user\s+admin)\b': 'open user admin',
+            r'\b(open|launch|start)\s+(user\s+logging)\b': 'open user logging',
+            r'\b(open|launch|start)\s+(user\s+log)\b': 'open user log',
             
-            # Robot-specific commands
-            r'\b(pick up|grab|take|get)\b': 'pick up',
-            r'\b(put down|drop|place|set down)\b': 'put down',
-            r'\b(lift|raise|elevate)\b': 'lift',
-            r'\b(lower|drop|descend)\b': 'lower',
+            # Camera commands (open)
+            r'\b(open|launch|start)\s+(camera\s+1|camera\s+one)\b': 'open camera 1',
+            r'\b(open|launch|start)\s+(camera\s+2|camera\s+two)\b': 'open camera 2',
+            r'\b(open|launch|start)\s+(camera\s+3|camera\s+three)\b': 'open camera 3',
+            r'\b(open|launch|start)\s+(camera\s+4|camera\s+four)\b': 'open camera 4',
             
-            # Speed/mode commands
-            r'\b(speed up|faster|accelerate)\b': 'speed up',
-            r'\b(slow down|slower|decelerate)\b': 'slow down',
-            r'\b(normal speed|regular speed)\b': 'normal speed',
+            # Camera commands (close)
+            r'\b(close|shut|stop)\s+(camera\s+1|camera\s+one)\b': 'close camera 1',
+            r'\b(close|shut|stop)\s+(camera\s+2|camera\s+two)\b': 'close camera 2',
+            r'\b(close|shut|stop)\s+(camera\s+3|camera\s+three)\b': 'close camera 3',
+            r'\b(close|shut|stop)\s+(camera\s+4|camera\s+four)\b': 'close camera 4',
             
-            # Status commands
-            r'\b(status|state|condition|how are you)\b': 'status',
-            r'\b(help|assist|what can you do)\b': 'help',
+            # Template commands (A-F)
+            r'\b(template|temp)\s+(a|alpha)\b': 'template A',
+            r'\b(template|temp)\s+(b|beta)\b': 'template B',
+            r'\b(template|temp)\s+(c|charlie)\b': 'template C',
+            r'\b(template|temp)\s+(d|delta)\b': 'template D',
+            r'\b(template|temp)\s+(e|echo)\b': 'template E',
+            r'\b(template|temp)\s+(f|foxtrot)\b': 'template F',
             
-            # Simple directional commands
-            r'\b(forward|ahead|front)\b': 'forward',
-            r'\b(backward|back|backwards)\b': 'back', 
-            r'\b(left|port)\b': 'left',
-            r'\b(right|starboard)\b': 'right',
-            r'\b(up|upward)\b': 'up',
-            r'\b(down|downward)\b': 'down',
+            # Template commands (7-10)
+            r'\b(template|temp)\s+(7|seven)\b': 'template 7',
+            r'\b(template|temp)\s+(8|eight)\b': 'template 8',
+            r'\b(template|temp)\s+(9|nine)\b': 'template 9',
+            r'\b(template|temp)\s+(10|ten)\b': 'template 10',
         }
         
         # Emergency/priority commands (highest priority)
         self.emergency_patterns = {
             r'\b(emergency stop|e-?stop|abort|danger)\b': 'emergency stop',
-            r'\b(help|emergency|urgent)\b': 'emergency',
         }
         
     def clean_text(self, text: str) -> str:
