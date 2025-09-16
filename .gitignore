@@ -39,9 +39,9 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Application specific
-text.txt
-config.json
+# Application specific - exclude runtime files but allow samples
+# text.txt  # Commented out to include sample
+# config.json  # Commented out to include sample
 *.wav
 *.mp3
 temp_audio_*
