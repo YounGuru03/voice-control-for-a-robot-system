@@ -52,3 +52,7 @@ test_monitor.txt
 
 # Whisper models cache
 ~/.cache/whisper/
+
+# Added by cargo
+
+/target
