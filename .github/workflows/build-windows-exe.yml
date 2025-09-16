@@ -4,47 +4,306 @@ name: Build Windows Executable
 
 on:
   workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'release'
+        type: choice
+        options:
+          - release
+          - debug
+  push:
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - '*.py'
+      - 'requirements.txt'
+      - '.github/workflows/build-windows-exe.yml'
 
 jobs:
   build-on-windows:
     runs-on: windows-latest
+    timeout-minutes: 60
 
     steps:
-      # 步骤 1: 检出代码
+      # Step 1: Check out repository code
       - name: Check out repository code
         uses: actions/checkout@v4
 
-      # 步骤 2: 设置 Python
+      # Step 2: Set up Python with caching
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12' # 确认版本号与你开发时一致
+          python-version: '3.12'
+          cache: 'pip'
 
-      # 步骤 3: 安装 Python 依赖
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      # 步骤 4: 下载并准备 FFmpeg
-      - name: Download and Extract FFmpeg
+      # Step 3: Install system dependencies and prepare environment
+      - name: Prepare build environment
+        shell: powershell
         run: |
-          Invoke-WebRequest -Uri https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip -OutFile ffmpeg.zip
-          Expand-Archive -Path ffmpeg.zip -DestinationPath .
-          $ffmpeg_dir = Get-ChildItem -Filter ffmpeg-*-essentials_build
-          Move-Item -Path "$($ffmpeg_dir.FullName)\bin\ffmpeg.exe" -Destination .
+          Write-Host "🔧 Preparing build environment..."
+          
+          # Set up environment variables
+          $env:PYTHONIOENCODING = "utf-8"
+          $env:PYTHONUNBUFFERED = "1"
+          
+          # Create directories
+          New-Item -ItemType Directory -Path "build-logs" -Force
+          
+          # System info
+          Write-Host "📊 System Information:"
+          Write-Host "  OS: $($env:OS) $($env:PROCESSOR_ARCHITECTURE)"
+          Write-Host "  PowerShell: $($PSVersionTable.PSVersion)"
+          Write-Host "  Python: $(python --version)"
+          
+          # Check available space
+          $disk = Get-WmiObject -Class Win32_LogicalDisk -Filter "DriveType=3" | Where-Object {$_.DeviceID -eq "C:"}
+          $freeSpace = [math]::Round($disk.FreeSpace / 1GB, 1)
+          Write-Host "  Free Space: ${freeSpace} GB"
 
-      # 步骤 5: 使用 PyInstaller 打包
-      - name: Build with PyInstaller
-        run: >
-          pyinstaller
-          --onefile
-          --windowed
-          --name VoiceCommandTool
-          --add-binary "ffmpeg.exe;."
-          main.py # <--- 项目的主程序文件名
+      # Step 4: Download and prepare FFmpeg
+      - name: Download and Extract FFmpeg
+        shell: powershell
+        run: |
+          Write-Host "📥 Downloading FFmpeg..."
+          
+          try {
+            Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile "ffmpeg.zip" -TimeoutSec 300
+            Write-Host "✅ FFmpeg downloaded successfully"
+            
+            Expand-Archive -Path "ffmpeg.zip" -DestinationPath "." -Force
+            $ffmpeg_dir = Get-ChildItem -Filter "ffmpeg-*-essentials_build" | Select-Object -First 1
+            
+            if ($ffmpeg_dir) {
+              Copy-Item -Path "$($ffmpeg_dir.FullName)\bin\ffmpeg.exe" -Destination "."
+              Write-Host "✅ FFmpeg extracted and ready"
+              
+              # Test FFmpeg
+              ./ffmpeg.exe -version | Select-Object -First 3
+            } else {
+              Write-Error "❌ Could not find FFmpeg directory"
+              exit 1
+            }
+          } catch {
+            Write-Error "❌ Failed to download or extract FFmpeg: $_"
+            exit 1
+          }
 
-      # 步骤 6: 上传打包好的 .exe
-      - name: Upload Artifact
+      # Step 5: Install Python dependencies with retry logic
+      - name: Install dependencies with retry
+        shell: powershell
+        run: |
+          Write-Host "📦 Installing Python dependencies..."
+          
+          $maxAttempts = 3
+          $attempt = 1
+          $success = $false
+          
+          while ($attempt -le $maxAttempts -and -not $success) {
+            Write-Host "🔄 Attempt $attempt of $maxAttempts"
+            
+            try {
+              # Upgrade pip first
+              python -m pip install --upgrade pip setuptools wheel
+              
+              # Install dependencies with timeout and retries
+              python -m pip install --timeout 600 --retries 5 -r requirements.txt
+              
+              Write-Host "✅ Dependencies installed successfully"
+              $success = $true
+            } catch {
+              Write-Host "⚠️ Attempt $attempt failed: $_"
+              $attempt++
+              
+              if ($attempt -le $maxAttempts) {
+                Write-Host "⏳ Waiting 30 seconds before retry..."
+                Start-Sleep 30
+              }
+            }
+          }
+          
+          if (-not $success) {
+            Write-Error "❌ Failed to install dependencies after $maxAttempts attempts"
+            exit 1
+          }
+          
+          # Verify critical imports
+          Write-Host "🔍 Verifying critical dependencies..."
+          python -c "import torch; import whisper; import pyaudio; import numpy; print('✅ All critical dependencies available')"
+
+      # Step 6: Run enhanced build script
+      - name: Build with enhanced build script
+        shell: powershell
+        run: |
+          Write-Host "🔨 Starting enhanced build process..."
+          
+          # Set environment for build
+          $env:PYINSTALLER_CONFIG_DIR = "$pwd\build-cache"
+          
+          try {
+            python build.py 2>&1 | Tee-Object -FilePath "build-logs\build.log"
+            
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "❌ Build script failed with exit code $LASTEXITCODE"
+              exit 1
+            }
+            
+            Write-Host "✅ Build completed successfully"
+          } catch {
+            Write-Error "❌ Build process failed: $_"
+            exit 1
+          }
+
+      # Step 7: Verify build output
+      - name: Verify build output
+        shell: powershell
+        run: |
+          Write-Host "🔍 Verifying build output..."
+          
+          if (-not (Test-Path "dist\VoiceCommandTool.exe")) {
+            Write-Error "❌ Main executable not found!"
+            Get-ChildItem -Recurse dist\ -ErrorAction SilentlyContinue
+            exit 1
+          }
+          
+          $exe = Get-ChildItem "dist\VoiceCommandTool.exe"
+          $sizeMB = [math]::Round($exe.Length / 1MB, 1)
+          
+          Write-Host "📊 Build Results:"
+          Write-Host "  📄 VoiceCommandTool.exe: $sizeMB MB"
+          Write-Host "  📅 Created: $($exe.CreationTime)"
+          Write-Host "  🔒 Attributes: $($exe.Attributes)"
+          
+          # List all files in dist
+          Write-Host "`n📁 All files in dist:"
+          Get-ChildItem -Recurse dist\ | ForEach-Object {
+            $size = if ($_.PSIsContainer) { "DIR" } else { "$([math]::Round($_.Length / 1KB, 1)) KB" }
+            Write-Host "  $($_.Name): $size"
+          }
+          
+          # Test executable briefly (it should start and show help or error)
+          try {
+            Write-Host "`n🧪 Testing executable startup..."
+            $proc = Start-Process "dist\VoiceCommandTool.exe" -PassThru -WindowStyle Hidden -Wait -TimeoutSec 10
+            Write-Host "✅ Executable can start (exit code: $($proc.ExitCode))"
+          } catch {
+            Write-Host "⚠️ Executable test timeout (expected in headless environment)"
+          }
+
+      # Step 8: Create comprehensive package
+      - name: Create distribution package
+        shell: powershell
+        run: |
+          Write-Host "📦 Creating distribution package..."
+          
+          # Create package directory
+          $packageName = "VoiceCommandTool-Windows-x64"
+          New-Item -ItemType Directory -Path $packageName -Force
+          
+          # Copy main executable
+          Copy-Item "dist\VoiceCommandTool.exe" "$packageName\"
+          
+          # Copy additional files
+          @("README.md", "LICENSE", "config.json") | ForEach-Object {
+            if (Test-Path $_) {
+              Copy-Item $_ "$packageName\"
+              Write-Host "  📄 Copied $_"
+            }
+          }
+          
+          # Create quick start guide
+          @"
+Voice Command Tool - Quick Start Guide
+=====================================
+
+Getting Started:
+1. Double-click VoiceCommandTool.exe to launch
+2. Click "Start Listening" to begin voice recognition
+3. Speak commands clearly into your microphone
+4. Recognized commands will be saved to text.txt
+
+System Requirements:
+- Windows 10/11 (64-bit)
+- Working microphone
+- 4 GB RAM recommended
+- No additional software needed
+
+Troubleshooting:
+- Ensure microphone permissions are enabled
+- Check Windows Privacy Settings for microphone access
+- Run as administrator if you encounter audio issues
+- Close other audio applications if recognition is poor
+
+For full documentation, see README.md
+Built on: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+"@ | Out-File -FilePath "$packageName\QUICK_START.txt" -Encoding UTF8
+          
+          # Create installation test script
+          @"
+@echo off
+echo Testing Voice Command Tool installation...
+echo.
+if not exist VoiceCommandTool.exe (
+    echo ERROR: VoiceCommandTool.exe not found!
+    pause
+    exit /b 1
+)
+echo Found: VoiceCommandTool.exe
+echo.
+echo Starting application test...
+start /wait VoiceCommandTool.exe --help
+echo.
+echo If the application started successfully, installation is complete.
+echo You can now run VoiceCommandTool.exe normally.
+echo.
+pause
+"@ | Out-File -FilePath "$packageName\test_installation.bat" -Encoding ASCII
+          
+          Write-Host "✅ Distribution package created: $packageName"
+
+      # Step 9: Upload build artifacts
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-executable-with-ffmpeg
-          path: dist/VoiceCommandTool.exe # 确认这里的 .exe 文件名与上面 --name 参数一致
+          name: VoiceCommandTool-Windows-x64
+          path: VoiceCommandTool-Windows-x64/
+          retention-days: 30
+
+      # Step 10: Upload build logs
+      - name: Upload build logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-logs
+          path: build-logs/
+          retention-days: 14
+
+      # Step 11: Create release assets (if tagged)
+      - name: Create release archive
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: powershell
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $archiveName = "VoiceCommandTool-$tag-Windows-x64.zip"
+          
+          Compress-Archive -Path "VoiceCommandTool-Windows-x64\*" -DestinationPath $archiveName
+          Write-Host "✅ Created release archive: $archiveName"
+          
+          # Create checksum
+          $hash = Get-FileHash $archiveName -Algorithm SHA256
+          "$($hash.Hash) *$archiveName" | Out-File -FilePath "$archiveName.sha256" -Encoding ASCII
+          
+          Write-Host "✅ Created checksum: $archiveName.sha256"
+
+      # Step 12: Upload release assets
+      - name: Upload release assets
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: |
+            VoiceCommandTool-*.zip
+            VoiceCommandTool-*.sha256

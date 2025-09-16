@@ -1,0 +1,30 @@
+{
+    "name": "Voice Control Development",
+    "image": "mcr.microsoft.com/devcontainers/python:3.12",
+    "features": {
+        "ghcr.io/devcontainers/features/rust:1": {
+            "version": "latest"
+        }
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.pylint",
+                "rust-lang.rust-analyzer",
+                "ms-vscode.vscode-json"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.linting.enabled": true,
+                "python.linting.pylintEnabled": true
+            }
+        }
+    },
+    "postCreateCommand": "sudo apt-get update && sudo apt-get install -y portaudio19-dev python3-tk ffmpeg && pip install --upgrade pip && python setup_dev_environment.py",
+    "remoteUser": "vscode",
+    "containerEnv": {
+        "PYTHONPATH": "${containerWorkspaceFolder}",
+        "DISPLAY": ":99"
+    }
+}
