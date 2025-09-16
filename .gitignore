@@ -1,12 +1,10 @@
-# Python
+# Python (legacy - being phased out)
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -20,28 +18,93 @@ wheels/
 .installed.cfg
 *.egg
 
-# PyInstaller
+# PyInstaller (legacy)
 *.manifest
 *.spec
 
-# Virtual environments
+# Virtual environments (legacy)
 venv/
 env/
 ENV/
 
-# IDE
+# .NET / C# (new WinUI3 app)
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+
+# .NET Core
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# MSBuild Binary and Structured Log
+*.binlog
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+
+# Visual Studio
+.vs/
+*.vsidx
+*.vspscc
+*_i.c
+*_p.c
+*_h.h
+*.ilk
+*.meta
+*.obj
+*.pch
+*.pdb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*.log
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
+
+# Visual Studio Code
 .vscode/
+
+# JetBrains IDEs
 .idea/
 *.swp
 *.swo
 
-# OS
+# OS files
 .DS_Store
 Thumbs.db
 
-# Application specific - exclude runtime files but allow samples
-# text.txt  # Commented out to include sample
-# config.json  # Commented out to include sample
+# Build output
+dist/
+build/
+target/
+
+# Application specific files
 *.wav
 *.mp3
 temp_audio_*
@@ -53,6 +116,8 @@ test_monitor.txt
 # Whisper models cache
 ~/.cache/whisper/
 
-# Added by cargo
+# Output file (let users create their own)
+text.txt
 
-/target
+# Temporary files
+*.tmp
