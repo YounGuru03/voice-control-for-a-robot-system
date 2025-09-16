@@ -1,0 +1,18 @@
+# Minimal requirements for testing build system without heavy dependencies
+# Use this for initial testing in environments with network issues
+
+# Core build tools
+pyinstaller>=5.0.0
+
+# Basic packages that usually install quickly
+numpy>=1.21.0
+watchdog>=2.1.0
+
+# For testing basic functionality
+requests>=2.25.0
+
+# Note: For full functionality, use requirements.txt which includes:
+# - openai-whisper
+# - torch/torchaudio (large downloads)
+# - pyaudio (requires system dependencies)
+# - scipy/matplotlib (larger packages)
