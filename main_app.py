@@ -554,139 +554,216 @@ Version: 1.0
         threading.Thread(target=init_worker, daemon=True).start()
 
     def start_listening(self):
-        """START - Core recognition logic with proper display"""
+        """
+        启动语音识别监听（核心业务逻辑）
+        
+        【关键】双阶段识别流程：
+        阶段1: 唤醒词检测（WAKE_STATE=0 → WAKE_STATE=1）
+        阶段2: 指令识别（WAKE_STATE=1）
+        
+        【关键】状态保护：
+        - 检查audio_processor是否已初始化
+        - 防止重复启动（is_listening标志）
+        - 启动前清空output.txt
+        
+        【数据流】用户点击Start → 清空输出 → 启动监听线程 → 双阶段识别循环
+        """
+        # 【检查】模型是否已初始化
         if not self.audio_processor:
-            messagebox.showerror("Error", "Not initialized")
+            messagebox.showerror("错误", "模型未初始化")
             return
 
+        # 【检查】防止重复启动
         if self.is_listening:
             return
 
+        # 【关键】清空输出文件，开始新session
         self.clear_output_file()
 
+        # 【关键】初始化状态变量
         self.is_listening = True
         self.failed_match_count = 0
-        self.current_state = self.STATE_LISTENING_FOR_WAKE
+        self.WAKE_STATE = 0  # 初始状态：未激活
+        self._in_command_mode = False  # 辅助标志
 
+        # 【GUI更新】按钮状态
         self.btn_start.config(state=tk.DISABLED)
         self.btn_stop.config(state=tk.NORMAL)
         self.update_status_display()
 
         def listen_worker():
+            """
+            监听工作线程
+            
+            【关键】异常处理三层结构：
+            1. 最外层：捕获所有致命异常
+            2. 中层：处理唤醒词检测循环异常
+            3. 内层：处理指令识别循环异常
+            """
             try:
+                # 【阶段1】持续监听唤醒词
                 while self.is_listening:
                     try:
-                        # PHASE 1: Wake-word detection
-                        wake_audio = self.audio_processor.record_audio(duration=3)
+                        # 【关键】状态检查：仅在WAKE_STATE=0时监听唤醒词
+                        if self.WAKE_STATE == 0:
+                            # 录制3秒音频用于唤醒词检测
+                            wake_audio = self.audio_processor.record_audio(duration=3)
 
-                        if wake_audio is None or not self.is_listening:
-                            continue
+                            if wake_audio is None or not self.is_listening:
+                                continue
 
-                        if self.audio_processor.detect_wake_word(wake_audio, wake_word="susie"):
-                            # ENTER COMMAND MODE
-                            self.current_state = self.STATE_COMMAND_MODE
-                            timestamp = datetime.now().strftime("%H:%M:%S")
-                            self.root.after(0,
-                                            lambda: self.append_result(f"[{timestamp}]\n🎯 Command Mode Activated\n\n"))
-                            self.root.after(0, lambda: self.update_status_display())
+                            # 【关键】检测唤醒词"susie"
+                            if self.audio_processor.detect_wake_word(wake_audio, wake_word="susie"):
+                                # 【关键】状态转换：WAKE_STATE 0 → 1
+                                self.WAKE_STATE = 1
+                                self._in_command_mode = True
+                                timestamp = datetime.now().strftime("%H:%M:%S")
+                                self.root.after(0,
+                                                lambda: self.append_result(f"[{timestamp}]\n🎯 指令模式已激活 (Command Mode Activated)\n\n"))
+                                self.root.after(0, lambda: self.update_status_display())
+                                print(f"【关键】WAKE_STATE: 0 → 1 (已激活)")
 
-                            # PHASE 2: Command recognition
-                            while self.is_listening and self.current_state == self.STATE_COMMAND_MODE:
-                                try:
-                                    cmd_audio = self.audio_processor.record_audio(duration=5)
+                        # 【阶段2】指令识别模式（WAKE_STATE=1时执行）
+                        if self.WAKE_STATE == 1 and self.is_listening:
+                            try:
+                                # 录制5秒音频用于指令识别
+                                cmd_audio = self.audio_processor.record_audio(duration=5)
 
-                                    if cmd_audio is None or not self.is_listening:
-                                        break
-
-                                    boost_list = self.command_manager.get_boost_list()
-                                    result = self.audio_processor.transcribe(cmd_audio, boost_phrases=boost_list)
-
-                                    # CRITICAL: Validate result
-                                    if result is None:
-                                        continue
-                                    if not isinstance(result, str):
-                                        print(f"⚠️ Non-string result: {type(result)}")
-                                        continue
-
-                                    result = result.strip()
-                                    if not result:
-                                        continue
-
-                                    # Check match
-                                    matched = self.audio_processor.check_phrase_match(result,
-                                                                                      self.command_manager.get_all_commands())
-
-                                    timestamp = datetime.now().strftime("%H:%M:%S")
-
-                                    # Get speaker
-                                    speaker_label = ""
-                                    if self.speaker_var.get() == "Auto" and matched:
-                                        detected_speaker = self.command_manager.get_trained_speaker(matched)
-                                        if detected_speaker:
-                                            speaker_name = self.speaker_manager.get_all_speakers().get(detected_speaker,
-                                                                                                       {}).get("name",
-                                                                                                               "Unknown")
-                                            speaker_label = f" [{speaker_name}]"
-
-                                    if matched:
-                                        # SUCCESS
-                                        self.failed_match_count = 0
-                                        write_success = self.write_to_output(result)
-
-                                        if write_success:
-                                            log_msg = f"[{timestamp}]{speaker_label}\n✅ {result}\n📝 Saved to output.txt\n\n"
-                                        else:
-                                            log_msg = f"[{timestamp}]{speaker_label}\n✅ {result}\n⚠️ Write failed\n\n"
-                                    else:
-                                        # NOT MATCHED
-                                        self.failed_match_count += 1
-                                        log_msg = f"[{timestamp}]\n❌ {result}\n⚠️ Not in command list\n\n"
-
-                                    self.root.after(0, lambda m=log_msg: self.append_result(m))
-
-                                    # Check failures
-                                    if self.failed_match_count >= self.max_failed_matches:
-                                        self.current_state = self.STATE_LISTENING_FOR_WAKE
-                                        self.failed_match_count = 0
-                                        self.root.after(0, lambda: self.append_result(
-                                            "⚠️ Too many unmatched. Say 'susie' again.\n\n"))
-                                        self.root.after(0, lambda: self.update_status_display())
-
-                                except Exception as e:
-                                    print(f"❌ Command error: {e}")
+                                if cmd_audio is None or not self.is_listening:
                                     continue
 
+                                # 【关键】获取Phrase Boosting列表（按权重排序）
+                                boost_list = self.command_manager.get_boost_list()
+                                
+                                # 【关键】转写音频为文本（带短语增强）
+                                result = self.audio_processor.transcribe(cmd_audio, boost_phrases=boost_list)
+
+                                # 【关键】严格的数据验证（三层检查）
+                                if result is None:
+                                    print("⚠️ 转写结果为None，跳过")
+                                    continue
+                                if not isinstance(result, str):
+                                    print(f"⚠️ 转写结果类型错误: {type(result)}，跳过")
+                                    continue
+
+                                result = result.strip()
+                                if not result:
+                                    print("⚠️ 转写结果为空字符串，跳过")
+                                    continue
+
+                                # 【关键】匹配转写结果与指令列表
+                                matched = self.audio_processor.check_phrase_match(result,
+                                                                                  self.command_manager.get_all_commands())
+
+                                timestamp = datetime.now().strftime("%H:%M:%S")
+
+                                # 【功能】说话人识别（Auto模式）
+                                speaker_label = ""
+                                if self.speaker_var.get() == "Auto" and matched:
+                                    detected_speaker = self.command_manager.get_trained_speaker(matched)
+                                    if detected_speaker:
+                                        speaker_name = self.speaker_manager.get_all_speakers().get(detected_speaker,
+                                                                                                   {}).get("name",
+                                                                                                           "Unknown")
+                                        speaker_label = f" [{speaker_name}]"
+
+                                # 【关键】根据匹配结果处理
+                                if matched:
+                                    # 成功匹配：重置失败计数，写入output.txt
+                                    self.failed_match_count = 0
+                                    write_success = self.write_to_output(result)
+
+                                    if write_success:
+                                        log_msg = f"[{timestamp}]{speaker_label}\n✅ {result}\n📝 已保存到 output.txt\n\n"
+                                    else:
+                                        log_msg = f"[{timestamp}]{speaker_label}\n✅ {result}\n⚠️ 写入失败\n\n"
+                                else:
+                                    # 未匹配：增加失败计数
+                                    self.failed_match_count += 1
+                                    log_msg = f"[{timestamp}]\n❌ {result}\n⚠️ 不在指令列表中 (失败次数: {self.failed_match_count}/{self.max_failed_matches})\n\n"
+
+                                # 【GUI更新】在主线程显示结果
+                                self.root.after(0, lambda m=log_msg: self.append_result(m))
+
+                                # 【关键】检查失败阈值：达到上限则退出指令模式
+                                if self.failed_match_count >= self.max_failed_matches:
+                                    self.WAKE_STATE = 0  # 状态回退：WAKE_STATE 1 → 0
+                                    self._in_command_mode = False
+                                    self.failed_match_count = 0
+                                    print(f"【关键】WAKE_STATE: 1 → 0 (失败次数过多，退出指令模式)")
+                                    self.root.after(0, lambda: self.append_result(
+                                        "⚠️ 失败次数过多，退出指令模式。请再次说 'susie' 激活。\n\n"))
+                                    self.root.after(0, lambda: self.update_status_display())
+
+                            except Exception as e:
+                                print(f"❌ 指令识别循环错误: {e}")
+                                continue
+
                     except Exception as e:
-                        print(f"❌ Wake error: {e}")
+                        print(f"❌ 唤醒词检测循环错误: {e}")
                         continue
 
             except Exception as e:
-                print(f"❌ Critical: {e}")
+                print(f"❌ 监听线程致命错误: {e}")
             finally:
+                # 【关键】无论如何都会执行的清理工作
                 self.root.after(0, lambda: self.on_listening_stopped())
 
+        # 【关键】启动后台监听线程（daemon模式）
         self.listen_thread = threading.Thread(target=listen_worker, daemon=True)
         self.listen_thread.start()
 
     def stop_listening(self):
-        """STOP"""
+        """
+        停止语音识别监听
+        
+        【关键】状态重置：
+        - 设置is_listening=False终止监听循环
+        - 重置WAKE_STATE=0（未激活状态）
+        - 恢复按钮状态
+        - 更新状态显示
+        
+        【数据流】用户点击Stop → 设置标志 → 线程自然退出 → 清理资源
+        """
         self.is_listening = False
-        self.current_state = self.STATE_IDLE
+        self.WAKE_STATE = 0  # 重置为未激活状态
+        self._in_command_mode = False
 
+        # 【GUI更新】恢复按钮状态
         self.btn_start.config(state=tk.NORMAL)
         self.btn_stop.config(state=tk.DISABLED)
 
         self.update_status_display()
 
     def on_listening_stopped(self):
-        """Cleanup"""
-        self.current_state = self.STATE_IDLE
+        """
+        监听停止后的清理工作
+        
+        【关键】资源清理：
+        - 重置WAKE_STATE=0
+        - 恢复按钮状态
+        - 更新状态显示
+        
+        调用时机：监听线程finally块中（确保必然执行）
+        """
+        self.WAKE_STATE = 0
+        self._in_command_mode = False
         self.btn_start.config(state=tk.NORMAL)
         self.btn_stop.config(state=tk.DISABLED)
         self.update_status_display()
 
     def append_result(self, text):
-        """Append to results"""
+        """
+        在Results框中追加显示文本
+        
+        参数说明：
+            text: 要显示的文本内容
+        
+        【关键】GUI线程安全：
+        - 由root.after()在主线程调用
+        - 自动滚动到底部
+        - 即时更新显示
+        """
         try:
             self.result_text.insert(tk.END, text)
             self.result_text.see(tk.END)
