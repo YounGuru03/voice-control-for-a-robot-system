@@ -1,5 +1,10 @@
-# Main Application - PRODUCTION READY
-# All bugs fixed + Enhanced recognition + Correct output.txt handling
+# =====================================================================
+# 主应用程序 - Main Application
+# =====================================================================
+# 功能：离线语音识别系统的GUI主程序和业务流程编排
+# 作者：NTU EEE MSc Group 2025
+# 说明：实现双阶段识别流程、状态机管理、GUI交互
+# =====================================================================
 
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox
@@ -13,6 +18,7 @@ from audio_processor import AudioProcessor
 from command_manager import CommandManager
 from speaker_manager import SpeakerManager
 
+# 【配置】UI主题颜色定义
 THEME = {
     "bg": "#FFFFFF",
     "border_red": "#FF0000",
@@ -27,93 +33,213 @@ THEME = {
 
 
 class VoiceCommandApp:
-    """Main application - Production ready with all fixes"""
+    """
+    语音指令应用主类
+    
+    职责：
+    1. 管理GUI界面创建和更新
+    2. 实现双阶段语音识别流程（唤醒词+指令）
+    3. 管理状态机转换（WAKE_STATE机制）
+    4. 协调音频处理、指令管理、说话人管理三大模块
+    5. 处理用户交互事件（按钮、输入框等）
+    6. 管理识别结果的显示和持久化
+    
+    【关键】状态机设计（WAKE_STATE）：
+    - WAKE_STATE = 0: 系统未激活，仅监听唤醒词"susie"
+    - WAKE_STATE = 1: 系统已激活，可处理指令识别和转写
+    
+    设计模式：
+    - 状态机模式：管理识别流程
+    - 观察者模式：GUI事件处理
+    - 多线程设计：后台识别 + 主线程GUI更新
+    """
 
     def __init__(self, root):
+        """
+        初始化主应用程序
+        
+        参数说明：
+            root: Tkinter根窗口对象
+        
+        【关键】初始化流程：
+        1. 设置窗口属性（标题、尺寸、背景）
+        2. 初始化三大核心模块（音频、指令、说话人）
+        3. 初始化状态机变量
+        4. 创建GUI界面
+        5. 后台加载Whisper模型
+        6. 更新状态显示
+        """
         self.root = root
         self.root.title("Voice Control For A Robot System")
         self.root.geometry("850x800")
         self.root.configure(bg=THEME["bg"])
 
-        self.audio_processor = None
+        # 【关键】核心模块初始化
+        self.audio_processor = None  # 延迟加载（模型初始化耗时）
         self.command_manager = CommandManager()
         self.speaker_manager = SpeakerManager()
 
-        # STATE MACHINE
-        self.STATE_IDLE = "IDLE"
-        self.STATE_LISTENING_FOR_WAKE = "LISTENING_FOR_WAKE"
-        self.STATE_COMMAND_MODE = "COMMAND_MODE"
+        # 【关键】状态机变量 - 使用WAKE_STATE机制
+        # WAKE_STATE = 0: 未激活，仅监听唤醒词
+        # WAKE_STATE = 1: 已激活，可处理指令
+        self.WAKE_STATE = 0
+        
+        # 辅助状态标志
+        self.is_listening = False      # 是否正在监听
+        self.listen_thread = None      # 监听线程对象
+        self.failed_match_count = 0    # 连续失败次数计数
+        self.max_failed_matches = 5    # 最大失败次数阈值
 
-        self.current_state = self.STATE_IDLE
-        self.is_listening = False
-        self.listen_thread = None
-        self.failed_match_count = 0
-        self.max_failed_matches = 5
-
+        # 【流程】UI创建 → 模型加载 → 状态更新
         self.create_ui()
         self.init_audio()
         self.update_status_display()
 
     def load_logo(self):
-        """Load NTU.png logo"""
+        """
+        加载NTU Logo图片
+        
+        返回值：
+            ImageTk.PhotoImage对象，加载失败返回None
+        
+        【关键】Logo规格：
+        - 原始尺寸：3000x2000像素（3:2比例）
+        - 显示尺寸：180x120像素（保持比例）
+        - 使用LANCZOS算法保证缩放质量
+        
+        【文件路径】使用绝对路径确保Windows兼容性
+        """
         try:
-            if os.path.exists("NTU.png"):
-                img = Image.open("NTU.png")
+            logo_path = os.path.abspath("NTU.png")
+            if os.path.exists(logo_path):
+                img = Image.open(logo_path)
                 img = img.resize((180, 120), Image.Resampling.LANCZOS)
                 return ImageTk.PhotoImage(img)
         except Exception as e:
-            print(f"⚠️ Logo error: {e}")
+            print(f"⚠️ Logo加载错误: {e}")
         return None
 
     def show_easter_egg(self):
-        """Show about dialog"""
-        messagebox.showinfo("About", "Provided by NTU EEE MSc Group 2025")
+        """
+        显示关于对话框（彩蛋）
+        
+        触发方式：点击标题文字
+        """
+        messagebox.showinfo("关于", "由NTU EEE MSc 2025级提供\nProvided by NTU EEE MSc Group 2025")
 
     def update_status_display(self):
-        """Update status indicator"""
-        status_map = {
-            self.STATE_IDLE: ("⚪ Idle", THEME["gray"]),
-            self.STATE_LISTENING_FOR_WAKE: ("🔴 Listening for 'susie'", "#FF6600"),
-            self.STATE_COMMAND_MODE: ("🟢 Command Mode Ready", THEME["button_green"])
-        }
+        """
+        更新状态指示器显示
+        
+        【关键】状态映射：
+        - WAKE_STATE = 0 → "⚪ 待机中 (Idle)"
+        - WAKE_STATE = 1 且监听唤醒词 → "🔴 监听唤醒词 (Listening for 'susie')"
+        - WAKE_STATE = 1 且指令模式 → "🟢 指令模式就绪 (Command Mode Ready)"
+        
+        【数据流】状态变量 → 状态文本+颜色 → GUI更新
+        """
+        # 【关键】根据WAKE_STATE和监听状态确定显示
+        if self.WAKE_STATE == 0:
+            # 未激活状态
+            status_text = "⚪ 待机中 (Idle)"
+            status_color = THEME["gray"]
+        elif self.is_listening:
+            # 激活状态 - 根据具体阶段判断
+            if hasattr(self, '_in_command_mode') and self._in_command_mode:
+                status_text = "🟢 指令模式就绪 (Command Mode Ready)"
+                status_color = THEME["button_green"]
+            else:
+                status_text = "🔴 监听唤醒词 (Listening for 'susie')"
+                status_color = "#FF6600"
+        else:
+            status_text = "⚪ 待机中 (Idle)"
+            status_color = THEME["gray"]
 
-        text, color = status_map.get(self.current_state, ("❓ Unknown", THEME["text"]))
-        self.status_var.set(text)
-        self.status_label.config(fg=color)
+        self.status_var.set(status_text)
+        self.status_label.config(fg=status_color)
 
     def clear_output_file(self):
-        """Clear output.txt - FIXED: No double extension"""
-        output_path = "output.txt"
+        """
+        清空output.txt文件
+        
+        【关键】Session管理：
+        - 每次点击Start按钮时调用
+        - 清空文件内容，确保新session结果独立
+        - 使用绝对路径和UTF-8编码
+        
+        【数据流】清空文件 → 在GUI显示提示
+        """
+        output_path = os.path.abspath("output.txt")
         try:
+            # 【编码】强制UTF-8
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write("")
-            print(f"📝 Cleared {output_path}")
-            self.append_result("📝 Session started - output.txt cleared\n\n")
+            print(f"📝 已清空 {output_path}")
+            self.append_result("📝 会话开始 - output.txt已清空\n\n")
         except Exception as e:
-            print(f"❌ Clear error: {e}")
+            print(f"❌ 清空文件错误: {e}")
 
     def write_to_output(self, command_text):
-        """Write to output.txt - FIXED: Correct filename"""
-        output_path = "output.txt"
+        """
+        将成功识别的指令写入output.txt
+        
+        参数说明：
+            command_text: 匹配成功的指令文本
+        
+        返回值：
+            True: 写入成功
+            False: 写入失败
+        
+        【关键】输出格式：
+        [时间戳] 指令文本
+        例：[2025-10-26 12:30:45] open door
+        
+        【关键】写入策略：
+        - 追加模式（append）不覆盖已有结果
+        - UTF-8编码支持中文
+        - 使用绝对路径
+        - 每行一条指令，带时间戳
+        
+        【数据流】指令文本 → 格式化 → 追加到文件
+        """
+        output_path = os.path.abspath("output.txt")
         try:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            # 【编码】强制UTF-8
             with open(output_path, "a", encoding="utf-8") as f:
                 f.write(f"[{timestamp}] {command_text}\n")
-            print(f"✅ Wrote to {output_path}: {command_text}")
+            print(f"✅ 已写入 {output_path}: {command_text}")
             return True
         except Exception as e:
-            print(f"❌ Write error: {e}")
+            print(f"❌ 写入错误: {e}")
             return False
 
     def clear_cache(self):
-        """Clear cache"""
+        """
+        清理系统缓存文件
+        
+        【关键】清理范围：
+        - __pycache__: Python字节码缓存
+        - .cache: Huggingface模型缓存（可选）
+        - temp: 临时文件目录
+        
+        【数据保护】不删除：
+        - commands.json (指令数据)
+        - speakers.json (说话人数据)
+        - output.txt (识别结果)
+        
+        【数据流】遍历缓存目录 → 计算大小 → 删除文件 → 显示结果
+        """
         try:
             cache_dirs = ["__pycache__", ".cache", "temp"]
             cleaned_size = 0
 
+            # 遍历所有缓存目录
             for cache_dir in cache_dirs:
-                if os.path.exists(cache_dir):
-                    for root_dir, dirs, files in os.walk(cache_dir):
+                cache_path = os.path.abspath(cache_dir)
+                if os.path.exists(cache_path):
+                    # 递归遍历目录树
+                    for root_dir, dirs, files in os.walk(cache_path):
                         for file in files:
                             try:
                                 file_path = os.path.join(root_dir, file)
@@ -121,14 +247,15 @@ class VoiceCommandApp:
                                 os.remove(file_path)
                             except:
                                 pass
+                    # 删除空目录
                     try:
-                        shutil.rmtree(cache_dir)
+                        shutil.rmtree(cache_path)
                     except:
                         pass
 
-            messagebox.showinfo("Success", f"Cleaned {cleaned_size / 1024 / 1024:.2f} MB")
+            messagebox.showinfo("成功", f"已清理 {cleaned_size / 1024 / 1024:.2f} MB")
         except Exception as e:
-            messagebox.showerror("Error", f"Failed: {e}")
+            messagebox.showerror("错误", f"清理失败: {e}")
 
     def create_ui(self):
         """Create UI"""
