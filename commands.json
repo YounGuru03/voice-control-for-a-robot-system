@@ -1,126 +1,26 @@
 {
-  "open main": {
-    "text": "open main",
-    "training_count": 2,
-    "weight": 1.2,
-    "created_at": "2025-10-26T00:42:58.158884"
-  },
   "open camera": {
     "text": "open camera",
-    "training_count": 1,
-    "weight": 1.1,
-    "created_at": "2025-10-26T00:43:04.677094"
-  },
-  "open lamp": {
-    "text": "open lamp",
     "training_count": 0,
     "weight": 1.0,
-    "created_at": "2025-10-26T01:52:09.708952",
-    "speaker_training": {}
+    "created_at": "2025-10-29T15:19:09.309879"
   },
-  "open robot": {
-    "text": "open robot",
+  "open main": {
+    "text": "open main",
     "training_count": 0,
     "weight": 1.0,
-    "created_at": "2025-10-26T01:52:17.664198",
-    "speaker_training": {}
-  },
-  "open robot cell": {
-    "text": "open robot cell",
-    "training_count": 0,
-    "weight": 1.0,
-    "created_at": "2025-10-26T01:52:24.598972",
-    "speaker_training": {}
-  },
-  "open 1": {
-    "text": "open 1",
-    "training_count": 0,
-    "weight": 1.0,
-    "created_at": "2025-10-26T01:52:30.663184",
-    "speaker_training": {}
-  },
-  "open 2": {
-    "text": "open 2",
-    "training_count": 0,
-    "weight": 1.0,
-    "created_at": "2025-10-26T01:52:35.766160",
-    "speaker_training": {}
+    "created_at": "2025-10-29T15:19:12.561759"
   },
   "open alarm": {
     "text": "open alarm",
     "training_count": 0,
     "weight": 1.0,
-    "created_at": "2025-10-26T01:52:41.463944",
-    "speaker_training": {}
-  },
-  "open trend": {
-    "text": "open trend",
-    "training_count": 0,
-    "weight": 1.0,
-    "created_at": "2025-10-26T01:52:47.768964",
-    "speaker_training": {}
+    "created_at": "2025-10-29T15:19:16.402634"
   },
   "open report": {
     "text": "open report",
     "training_count": 0,
     "weight": 1.0,
-    "created_at": "2025-10-26T01:52:52.810938",
-    "speaker_training": {}
-  },
-  "open record": {
-    "text": "open record",
-    "training_count": 0,
-    "weight": 1.0,
-    "created_at": "2025-10-26T01:52:58.917537",
-    "speaker_training": {}
-  },
-  "open user admin": {
-    "text": "open user admin",
-    "training_count": 0,
-    "weight": 1.0,
-    "created_at": "2025-10-26T01:53:04.806584",
-    "speaker_training": {}
-  },
-  "open user logging": {
-    "text": "open user logging",
-    "training_count": 0,
-    "weight": 1.0,
-    "created_at": "2025-10-26T01:53:11.368655",
-    "speaker_training": {}
-  },
-  "open user log": {
-    "text": "open user log",
-    "training_count": 0,
-    "weight": 1.0,
-    "created_at": "2025-10-26T01:53:19.318705",
-    "speaker_training": {}
-  },
-  "open camera 1": {
-    "text": "open camera 1",
-    "training_count": 0,
-    "weight": 1.0,
-    "created_at": "2025-10-26T01:53:24.861744",
-    "speaker_training": {}
-  },
-  "open camera 2": {
-    "text": "open camera 2",
-    "training_count": 0,
-    "weight": 1.0,
-    "created_at": "2025-10-26T01:53:30.322753",
-    "speaker_training": {}
-  },
-  "open camera 3": {
-    "text": "open camera 3",
-    "training_count": 0,
-    "weight": 1.0,
-    "created_at": "2025-10-26T01:53:36.532080",
-    "speaker_training": {}
-  },
-  "open camera 4": {
-    "text": "open camera 4",
-    "training_count": 0,
-    "weight": 1.0,
-    "created_at": "2025-10-26T01:53:41.498886",
-    "speaker_training": {}
+    "created_at": "2025-10-29T15:19:19.770044"
   }
 }
