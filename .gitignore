@@ -16,6 +16,7 @@ ENV/
 .venv
 
 # Local models and cache (IMPORTANT: Exclude large model files from git)
+# These files exceed GitHub's 100MB limit and should be downloaded separately
 local_models/
 hf_cache/
 *.bin
@@ -24,6 +25,7 @@ hf_cache/
 *.ckpt
 *.h5
 *.safetensors
+*.model
 
 # Hugging Face cache
 .cache/
