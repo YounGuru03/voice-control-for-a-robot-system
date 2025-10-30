@@ -1,4 +1,32 @@
-faster-whisper>=0.11.0
-pyaudio>=0.2.13
+# ============================================================================
+# requirements.txt - 优化的依赖文件
+# ============================================================================
+
+# 核心语音识别
+faster-whisper>=0.10.0
 numpy>=1.21.0
-Pillow>=9.0.0
+pyaudio>=0.2.11
+
+# TTS支持
+pyttsx3>=2.90
+
+# GUI框架
+# tkinter (通常内置在Python中)
+
+# 工具库
+requests>=2.25.0
+
+# PyInstaller用于打包
+PyInstaller>=5.0.0
+
+# 可选：更好的音频处理
+soundfile>=0.10.0
+
+# 可选：GPU支持 (如果需要)
+# torch>=2.0.0
+# torchaudio>=2.0.0
+
+# 系统依赖说明:
+# Windows: 需要安装 Microsoft Visual C++ Redistributable
+# Linux: sudo apt-get install espeak espeak-data libespeak1 libespeak-dev portaudio19-dev python3-dev
+# macOS: brew install portaudio espeak
