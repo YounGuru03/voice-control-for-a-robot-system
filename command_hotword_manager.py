@@ -9,16 +9,16 @@ from typing import List, Dict, Any
 import re
 
 class CommandHotwordManager:
-    """整合的命令与热词管理器"""
+    """Integrated command and hotword manager"""
     
     def __init__(self, data_file="commands_hotwords.json"):
-        """初始化管理器"""
+        """Initialize manager"""
         self.data_file = os.path.abspath(data_file)
         self.data = self._load()
         print(f"✅ CommandHotwordManager loaded: {len(self.data['commands'])} commands")
     
     def _load(self) -> Dict[str, Any]:
-        """加载数据"""
+        """Load data"""
         if os.path.exists(self.data_file):
             try:
                 with open(self.data_file, 'r', encoding='utf-8') as f:
@@ -37,7 +37,7 @@ class CommandHotwordManager:
         }
     
     def _save(self) -> bool:
-        """保存数据"""
+        """Save data"""
         try:
             temp_file = self.data_file + ".tmp"
             with open(temp_file, 'w', encoding='utf-8') as f:
@@ -52,7 +52,7 @@ class CommandHotwordManager:
             return False
     
     def add_command(self, text: str) -> bool:
-        """添加命令"""
+        """Add command"""
         text = text.strip()
         if not text or text in self.data["commands"]:
             return False
@@ -70,18 +70,18 @@ class CommandHotwordManager:
         return self._save()
     
     def remove_command(self, text: str) -> bool:
-        """删除命令"""
+        """Remove command"""
         if text in self.data["commands"]:
             del self.data["commands"][text]
             return self._save()
         return False
     
     def get_all_commands(self) -> List[str]:
-        """获取所有命令"""
+        """Get all commands"""
         return list(self.data["commands"].keys())
     
     def record_usage(self, text: str, success: bool = True) -> None:
-        """记录使用统计"""
+        """Record usage statistics"""
         if text not in self.data["commands"]:
             return
         
@@ -92,7 +92,7 @@ class CommandHotwordManager:
         if success:
             cmd_data["success_count"] += 1
             
-        # 自动权重提升
+        # Auto weight boost
         if self.data["global_settings"]["auto_boost"]:
             max_weight = self.data["global_settings"]["max_weight"]
             increment = self.data["global_settings"]["boost_increment"]
@@ -101,14 +101,14 @@ class CommandHotwordManager:
         self._save()
     
     def train_command(self, text: str) -> float:
-        """训练命令"""
+        """Train command"""
         if text not in self.data["commands"]:
             return 0.0
         
         cmd_data = self.data["commands"][text]
         cmd_data["training_count"] += 1
         
-        # 基于训练次数计算权重
+        # Calculate weight based on training count
         max_weight = self.data["global_settings"]["max_weight"]
         base_weight = self.data["global_settings"]["base_weight"]
         new_weight = min(base_weight + cmd_data["training_count"] * 0.3, max_weight)
@@ -118,11 +118,11 @@ class CommandHotwordManager:
         return new_weight
     
     def get_boost_phrases(self, max_count: int = 15) -> List[str]:
-        """获取权重排序的短语列表"""
+        """Get weight-sorted phrase list"""
         if not self.data["commands"]:
             return []
         
-        # 按权重和使用频率排序
+        # Sort by weight and usage frequency
         sorted_commands = sorted(
             self.data["commands"].items(),
             key=lambda x: (x[1]["weight"], x[1]["usage_count"]),
@@ -132,15 +132,15 @@ class CommandHotwordManager:
         return [cmd[0] for cmd in sorted_commands[:max_count]]
     
     def get_command_info(self, text: str) -> Dict[str, Any]:
-        """获取命令详细信息"""
+        """Get command detailed information"""
         return self.data["commands"].get(text, {})
     
     def get_training_count(self, text: str) -> int:
-        """获取训练次数"""
+        """Get training count"""
         return self.get_command_info(text).get("training_count", 0)
     
     def get_statistics(self) -> Dict[str, Any]:
-        """获取统计信息"""
+        """Get statistics"""
         if not self.data["commands"]:
             return {"total": 0, "most_used": [], "highest_weight": []}
         

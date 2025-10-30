@@ -22,14 +22,14 @@ except ImportError:
 
 
 class OptimizedTTSManager:
-    """优化的TTS管理器 - 增强容错性和稳定性"""
+    """Optimized TTS manager - Enhanced fault tolerance and stability"""
 
     def __init__(self, config_file="tts_config.json"):
-        """初始化TTS管理器"""
+        """Initialize TTS manager"""
         self.config_file = os.path.abspath(config_file)
         self.config = self._load_config()
 
-        # TTS队列和线程控制
+        # TTS queue and thread control
         self.tts_queue = queue.Queue()
         self.is_running = False
         self.worker_thread = None
@@ -37,19 +37,19 @@ class OptimizedTTSManager:
         self._lock = threading.Lock()
         self._current_speaking = False
 
-        # 增强容错性的控制变量
+        # Enhanced fault tolerance control variables
         self._engine_error_count = 0
         self._max_error_count = 3
         self._last_engine_init_time = 0
         self._engine_init_cooldown = 5.0
 
-        # 初始化引擎
+        # Initialize engine
         self._initialize_engine()
 
         print(f"✅ OptimizedTTSManager initialized with {TTS_TYPE}")
 
     def _load_config(self) -> Dict[str, Any]:
-        """加载配置"""
+        """Load configuration"""
         default_config = {
             "enabled": True,
             "rate": 160,
@@ -69,12 +69,12 @@ class OptimizedTTSManager:
         return default_config
 
     def _initialize_engine(self):
-        """初始化TTS引擎"""
+        """Initialize TTS engine"""
         if not self.config["enabled"] or TTS_TYPE != "pyttsx3":
             return
 
         try:
-            # 启动工作线程
+            # Start worker thread
             self.is_running = True
             self.worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
             self.worker_thread.start()
@@ -82,10 +82,10 @@ class OptimizedTTSManager:
             print(f"❌ TTS initialization error: {e}")
 
     def _init_pyttsx3_engine(self):
-        """初始化pyttsx3引擎（带容错）"""
+        """Initialize pyttsx3 engine (with fault tolerance)"""
         current_time = time.time()
 
-        # 检查冷却时间
+        # Check cooldown time
         if current_time - self._last_engine_init_time < self._engine_init_cooldown:
             return False
 
@@ -97,14 +97,14 @@ class OptimizedTTSManager:
                     pass
                 self.engine = None
 
-            # 重新初始化引擎
+            # Reinitialize engine
             self.engine = pyttsx3.init()
 
-            # 配置引擎
+            # Configure engine
             self.engine.setProperty('rate', self.config["rate"])
             self.engine.setProperty('volume', self.config["volume"])
 
-            # 设置语音
+            # Set voice
             voices = self.engine.getProperty('voices')
             if voices and len(voices) > self.config["voice_index"]:
                 voice_id = voices[self.config["voice_index"]].id
@@ -122,27 +122,27 @@ class OptimizedTTSManager:
             return False
 
     def _worker_loop(self):
-        """TTS工作线程循环 - 增强容错性"""
-        # 初始化引擎
+        """TTS worker thread loop - Enhanced fault tolerance"""
+        # Initialize engine
         if not self._init_pyttsx3_engine():
             print("❌ Failed to initialize TTS engine")
             return
 
-        # 处理TTS队列 - 增强容错性
+        # Process TTS queue - Enhanced fault tolerance
         consecutive_errors = 0
         max_consecutive_errors = 5
 
         while self.is_running:
             try:
-                # 获取TTS任务 - 增加容错性，不会因为队列空而break
+                # Get TTS task - Enhanced fault tolerance, won't break on empty queue
                 try:
-                    task = self.tts_queue.get(timeout=2.0)  # 增加timeout时间
+                    task = self.tts_queue.get(timeout=2.0)  # Increased timeout
                 except queue.Empty:
-                    # 队列为空时继续等待，不退出
-                    consecutive_errors = 0  # 重置连续错误计数
+                    # Continue waiting when queue is empty, don't exit
+                    consecutive_errors = 0  # Reset consecutive error count
                     continue
 
-                # 处理停止信号
+                # Process stop signal
                 if task is None:
                     print("🔄 TTS received stop signal")
                     break
@@ -152,7 +152,7 @@ class OptimizedTTSManager:
                     consecutive_errors = 0
                     continue
 
-                # 检查引擎状态
+                # Check engine status
                 if not self.engine:
                     print("⚠️ Engine not available, attempting to reinitialize...")
                     if self._init_pyttsx3_engine():
@@ -166,26 +166,32 @@ class OptimizedTTSManager:
                             consecutive_errors = 0
                         continue
 
-                # 执行TTS播报
+                # Execute TTS announcement
                 try:
                     with self._lock:
                         self._current_speaking = True
 
-                    print(f"🔊 Speaking: {text[:30]}...")
+                    print(f"🔊 Speaking: '{text[:50]}'")
+                    print(f"   Text length: {len(text)}, ASCII-only: {all(ord(c) < 128 for c in text)}")
+                    
                     self.engine.say(text)
                     self.engine.runAndWait()
 
-                    # 播报成功，重置错误计数
+                    print(f"✅ TTS completed successfully")
+                    
+                    # Reset error count on successful announcement
                     consecutive_errors = 0
 
-                    # 完成后稍作停顿
+                    # Brief pause after completion
                     time.sleep(0.5)
 
                 except Exception as e:
                     print(f"❌ TTS speaking error: {e}")
+                    print(f"   Failed text: '{text[:100]}'")
+                    print(f"   Error type: {type(e).__name__}")
                     consecutive_errors += 1
 
-                    # 尝试重新初始化引擎
+                    # Attempt to reinitialize engine
                     if consecutive_errors >= 2:
                         print("⚠️ Multiple TTS errors, reinitializing engine...")
                         if self._init_pyttsx3_engine():
@@ -193,7 +199,7 @@ class OptimizedTTSManager:
                         else:
                             print("❌ Engine reinitialization failed")
 
-                    # 如果连续错误过多，暂停一段时间
+                    # Pause if too many consecutive errors
                     if consecutive_errors >= max_consecutive_errors:
                         print(f"❌ Too many consecutive TTS errors ({consecutive_errors}), pausing...")
                         time.sleep(5.0)
@@ -203,7 +209,7 @@ class OptimizedTTSManager:
                     with self._lock:
                         self._current_speaking = False
 
-                # 标记任务完成
+                # Mark task as complete
                 try:
                     self.tts_queue.task_done()
                 except:
@@ -213,12 +219,12 @@ class OptimizedTTSManager:
                 print(f"❌ TTS worker loop error: {e}")
                 consecutive_errors += 1
 
-                # 如果是严重错误，暂停并尝试恢复
+                # Pause and attempt recovery on critical error
                 if consecutive_errors >= max_consecutive_errors:
                     print("❌ Critical TTS error, attempting recovery...")
                     time.sleep(3.0)
 
-                    # 尝试重新初始化引擎
+                    # Attempt to reinitialize engine
                     if self._init_pyttsx3_engine():
                         consecutive_errors = 0
                         print("✅ TTS recovery successful")
@@ -227,7 +233,7 @@ class OptimizedTTSManager:
 
                 continue
 
-        # 清理资源
+        # Clean up resources
         if self.engine:
             try:
                 self.engine.stop()
@@ -239,74 +245,142 @@ class OptimizedTTSManager:
 
         print("✅ TTS worker loop ended")
 
-    def speak_text(self, text: str) -> bool:
-        """说话（异步，增强容错性）"""
+    def speak_text(self, text: str, priority: bool = False) -> bool:
+        """Speak (asynchronous, enhanced fault tolerance, supports priority)"""
         if not self.config["enabled"] or not text.strip():
             return False
 
         if not self.is_running:
-            print("❌ TTS not running")
-            return False
+            print("❌ TTS not running, attempting to restart...")
+            # Attempt to restart TTS
+            self._initialize_engine()
+            if not self.is_running:
+                return False
 
         if not self.worker_thread or not self.worker_thread.is_alive():
-            print("❌ TTS worker thread not active")
-            return False
+            print("❌ TTS worker thread not active, restarting...")
+            self._initialize_engine()
+            if not self.worker_thread or not self.worker_thread.is_alive():
+                return False
 
         try:
-            # 添加到队列（增强容错性）
+            # Add to queue (enhanced fault tolerance)
             text = text.strip()
-            if len(text) > 500:  # 限制文本长度
+            
+            # Sanitize text to remove emoji and special characters
+            original_text = text
+            text = self._sanitize_text(text)
+            
+            if not text:
+                print(f"⚠️ Text became empty after sanitization: '{original_text[:50]}'")
+                return False
+            
+            if text != original_text:
+                print(f"🔄 Sanitized text: '{original_text[:30]}...' -> '{text[:30]}...'")
+            
+            if len(text) > 500:  # Limit text length
                 text = text[:500] + "..."
 
-            self.tts_queue.put({"text": text}, timeout=1.0)
+            # If priority message, clear old tasks from queue
+            if priority:
+                cleared_count = 0
+                while not self.tts_queue.empty() and cleared_count < 10:
+                    try:
+                        self.tts_queue.get_nowait()
+                        cleared_count += 1
+                    except queue.Empty:
+                        break
+                if cleared_count > 0:
+                    print(f"🔄 Cleared {cleared_count} old TTS tasks for priority message")
+
+            self.tts_queue.put({"text": text}, timeout=2.0)
+            print(f"✅ Added to TTS queue: '{text[:50]}...'")
             return True
 
         except queue.Full:
             print("⚠️ TTS queue is full, clearing old tasks...")
-            # 清空队列中的旧任务
-            while not self.tts_queue.empty():
+            # Clear old tasks from queue
+            cleared_count = 0
+            while not self.tts_queue.empty() and cleared_count < 20:
                 try:
                     self.tts_queue.get_nowait()
+                    cleared_count += 1
                 except queue.Empty:
                     break
+            
+            print(f"🔄 Cleared {cleared_count} old TTS tasks")
 
-            # 重新尝试添加
+            # Retry adding
             try:
-                self.tts_queue.put({"text": text}, timeout=0.5)
+                self.tts_queue.put({"text": text}, timeout=1.0)
+                print(f"✅ Added to TTS queue after clearing: '{text[:50]}...'")
                 return True
-            except:
+            except Exception as retry_error:
+                print(f"❌ Failed to add to queue even after clearing: {retry_error}")
                 return False
 
         except Exception as e:
             print(f"❌ TTS queue error: {e}")
             return False
 
+    def _sanitize_text(self, text: str) -> str:
+        """
+        Sanitize text for TTS by removing emoji and special Unicode characters.
+        Keeps only ASCII letters, numbers, spaces, and basic punctuation.
+        """
+        if not text:
+            return ""
+        
+        # Remove emoji and special Unicode characters
+        # Keep only ASCII printable characters (letters, numbers, basic punctuation)
+        sanitized = ''.join(char for char in text if ord(char) < 128 and (char.isalnum() or char in ' .,!?-:'))
+        
+        # Clean up multiple spaces
+        sanitized = ' '.join(sanitized.split())
+        
+        return sanitized
+
     def speak_command(self, command: str) -> bool:
-        """播报识别到的命令"""
+        """Announce recognized command"""
         if not command:
             return False
 
-        speak_text = f"{command}"
-        return self.speak_text(speak_text)
+        speak_text = f"Command recognized: {command}"
+        return self.speak_text(speak_text, priority=False)
 
     def speak_status(self, status: str) -> bool:
-        """播报状态信息"""
+        """Announce status information (high priority)"""
         if not status:
             return False
 
-        return self.speak_text(status)
+        # Status message mapping
+        status_messages = {
+            "start": "Voice control system starting",
+            "ready": "System ready",
+            "listening": "Listening for wake word",
+            "please speak": "Wake word detected. Please speak your command",
+            "command mode": "Command mode activated",
+            "not match": "No matching command found",
+            "stand by": "Returning to standby mode",
+            "stop": "Voice control system stopped",
+            "error": "An error occurred",
+            "processing": "Processing your command"
+        }
+        
+        message = status_messages.get(status.lower(), status)
+        return self.speak_text(message, priority=True)
 
     def is_speaking(self) -> bool:
-        """检查是否正在播报"""
+        """Check if currently speaking"""
         with self._lock:
             return self._current_speaking
 
     def get_queue_size(self) -> int:
-        """获取队列大小"""
+        """Get queue size"""
         return self.tts_queue.qsize()
 
     def clear_queue(self):
-        """清空TTS队列"""
+        """Clear TTS queue"""
         while not self.tts_queue.empty():
             try:
                 self.tts_queue.get_nowait()
@@ -315,7 +389,7 @@ class OptimizedTTSManager:
         print("✅ TTS queue cleared")
 
     def get_available_voices(self) -> List[Dict[str, Any]]:
-        """获取可用语音"""
+        """Get available voices"""
         voices = []
 
         if TTS_TYPE == "pyttsx3":
@@ -338,14 +412,14 @@ class OptimizedTTSManager:
         return voices
 
     def set_rate(self, rate: int) -> bool:
-        """设置语速"""
+        """Set speech rate"""
         if rate < 50 or rate > 400:
             return False
 
         self.config["rate"] = rate
         self._save_config()
 
-        # 更新引擎设置
+        # Update engine settings
         if self.engine:
             try:
                 self.engine.setProperty('rate', rate)
@@ -355,14 +429,14 @@ class OptimizedTTSManager:
         return True
 
     def set_volume(self, volume: float) -> bool:
-        """设置音量"""
+        """Set volume"""
         if volume < 0.0 or volume > 1.0:
             return False
 
         self.config["volume"] = volume
         self._save_config()
 
-        # 更新引擎设置
+        # Update engine settings
         if self.engine:
             try:
                 self.engine.setProperty('volume', volume)
@@ -372,7 +446,7 @@ class OptimizedTTSManager:
         return True
 
     def _save_config(self):
-        """保存配置"""
+        """Save configuration"""
         try:
             import json
             with open(self.config_file, 'w', encoding='utf-8') as f:
@@ -381,20 +455,20 @@ class OptimizedTTSManager:
             print(f"❌ Config save error: {e}")
 
     def stop(self):
-        """停止TTS"""
+        """Stop TTS"""
         print("🔄 Stopping TTS...")
         self.is_running = False
 
-        # 清空队列
+        # Clear queue
         self.clear_queue()
 
-        # 发送停止信号
+        # Send stop signal
         try:
             self.tts_queue.put(None, timeout=1.0)
         except:
             pass
 
-        # 等待工作线程结束
+        # Wait for worker thread to end
         if self.worker_thread and self.worker_thread.is_alive():
             self.worker_thread.join(timeout=5.0)
             if self.worker_thread.is_alive():
@@ -406,7 +480,7 @@ class OptimizedTTSManager:
         print("✅ TTS stopped")
 
     def get_engine_info(self) -> Dict[str, Any]:
-        """获取引擎信息"""
+        """Get engine information"""
         return {
             "engine_type": TTS_TYPE,
             "enabled": self.config["enabled"],

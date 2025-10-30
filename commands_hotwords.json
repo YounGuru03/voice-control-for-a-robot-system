@@ -2,24 +2,429 @@
   "commands": {
     "open main": {
       "text": "open main",
+      "weight": 1.7999999999999998,
+      "usage_count": 4,
+      "success_count": 4,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:21.885319",
+      "last_used": "2025-10-30T23:29:43.781899"
+    },
+    "open camera": {
+      "text": "open camera",
+      "weight": 1.4,
+      "usage_count": 2,
+      "success_count": 2,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:27.806176",
+      "last_used": "2025-10-30T22:16:48.859395"
+    },
+    "open report": {
+      "text": "open report",
+      "weight": 1.7999999999999998,
+      "usage_count": 4,
+      "success_count": 4,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": "2025-10-30T23:29:35.230964"
+    },
+    "open lamp": {
+      "text": "open lamp",
       "weight": 1.0,
       "usage_count": 0,
       "success_count": 0,
       "training_count": 0,
-      "created_at": "2025-10-30T20:58:21.885319",
+      "created_at": "2025-10-30T20:58:34.725070",
       "last_used": null
     },
-    "open camera": {
-      "text": "open camera",
+    "open robot": {
+      "text": "open robot",
       "weight": 1.2,
       "usage_count": 1,
       "success_count": 1,
       "training_count": 0,
-      "created_at": "2025-10-30T20:58:27.806176",
-      "last_used": "2025-10-30T20:58:48.481961"
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": "2025-10-30T22:45:52.209241"
     },
-    "open report": {
-      "text": "open report",
+    "open robot cell": {
+      "text": "open robot cell",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "open 1": {
+      "text": "open 1",
+      "weight": 1.4,
+      "usage_count": 2,
+      "success_count": 2,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": "2025-10-30T23:09:55.161409"
+    },
+    "open 2": {
+      "text": "open 2",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "open alarm": {
+      "text": "open alarm",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "open trend": {
+      "text": "open trend",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "open record": {
+      "text": "open record",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "open user admin": {
+      "text": "open user admin",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "open user logging": {
+      "text": "open user logging",
+      "weight": 1.2,
+      "usage_count": 1,
+      "success_count": 1,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": "2025-10-30T23:31:28.091849"
+    },
+    "open user log": {
+      "text": "open user log",
+      "weight": 1.2,
+      "usage_count": 1,
+      "success_count": 1,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": "2025-10-30T23:31:20.343666"
+    },
+    "open camera 1": {
+      "text": "open camera 1",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "open camera 2": {
+      "text": "open camera 2",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "open camera 3": {
+      "text": "open camera 3",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "open camera 4": {
+      "text": "open camera 4",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "close camera 1": {
+      "text": "close camera 1",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "close camera 2": {
+      "text": "close camera 2",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "close camera 3": {
+      "text": "close camera 3",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "close camera 4": {
+      "text": "close camera 4",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "template A": {
+      "text": "template A",
+      "weight": 1.4,
+      "usage_count": 2,
+      "success_count": 2,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": "2025-10-30T23:30:43.071542"
+    },
+    "template B": {
+      "text": "template B",
+      "weight": 1.2,
+      "usage_count": 1,
+      "success_count": 1,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": "2025-10-30T23:30:50.776007"
+    },
+    "template C": {
+      "text": "template C",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "template 8": {
+      "text": "template 8",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "template 9": {
+      "text": "template 9",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "template 10": {
+      "text": "template 10",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "1 day": {
+      "text": "1 day",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "2 day": {
+      "text": "2 day",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "3 day": {
+      "text": "3 day",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "4 day": {
+      "text": "4 day",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "5 day": {
+      "text": "5 day",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "6 day": {
+      "text": "6 day",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "7 day": {
+      "text": "7 day",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "8 day": {
+      "text": "8 day",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "9 day": {
+      "text": "9 day",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "10 day": {
+      "text": "10 day",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "1 week": {
+      "text": "1 week",
+      "weight": 1.4,
+      "usage_count": 2,
+      "success_count": 2,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": "2025-10-30T23:10:02.965364"
+    },
+    "2 week": {
+      "text": "2 week",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "3 week": {
+      "text": "3 week",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "4 week": {
+      "text": "4 week",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "5 week": {
+      "text": "5 week",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "6 week": {
+      "text": "6 week",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "7 week": {
+      "text": "7 week",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "8 week": {
+      "text": "8 week",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "9 week": {
+      "text": "9 week",
+      "weight": 1.0,
+      "usage_count": 0,
+      "success_count": 0,
+      "training_count": 0,
+      "created_at": "2025-10-30T20:58:34.725070",
+      "last_used": null
+    },
+    "10 week": {
+      "text": "10 week",
       "weight": 1.0,
       "usage_count": 0,
       "success_count": 0,

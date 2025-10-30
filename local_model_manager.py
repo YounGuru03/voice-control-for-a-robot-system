@@ -31,6 +31,9 @@ class LocalModelManager:
         self._setup_cache_environment()
         
         print(f"✅ LocalModelManager initialized: {self.models_dir}")
+        
+        # Verify models on startup
+        self._verify_models_on_startup()
 
     def _setup_cache_environment(self):
         """Setup cache environment without forcing offline mode"""
@@ -281,3 +284,79 @@ class LocalModelManager:
         """Prepare PyInstaller data file parameters"""
         # Since we use system cache, no special data file parameters needed
         return []
+    
+    def _verify_models_on_startup(self):
+        """Verify models exist on startup and download if missing"""
+        print("\n" + "="*60)
+        print("🔍 CHECKING LOCAL MODELS ON STARTUP")
+        print("="*60)
+        
+        # Check if faster-whisper is available
+        try:
+            from faster_whisper import WhisperModel
+            print("✅ faster-whisper library is installed")
+        except ImportError:
+            print("❌ faster-whisper library NOT found!")
+            print("   Please install: pip install faster-whisper")
+            return
+        
+        # Get default model
+        default_model = self.models_info.get("default_model", "base")
+        print(f"\n📦 Default model: {default_model}")
+        
+        # Check if default model exists
+        if self._check_local_model_cache(default_model):
+            print(f"✅ Model '{default_model}' found in local cache")
+            print(f"   Location: {os.environ.get('HF_HOME', 'system cache')}")
+        else:
+            print(f"⚠️  Model '{default_model}' NOT found in local cache")
+            
+            # Auto-download if enabled
+            if self.models_info.get("auto_download", True):
+                print(f"📥 Auto-download enabled, downloading model '{default_model}'...")
+                model = self._download_model(default_model)
+                if model:
+                    print(f"✅ Model '{default_model}' downloaded successfully")
+                else:
+                    print(f"❌ Failed to download model '{default_model}'")
+                    print("   The system may not work in offline mode")
+            else:
+                print("❌ Auto-download is disabled")
+                print("   Enable auto-download or manually download the model")
+        
+        # Check TTS engine
+        print(f"\n🔊 CHECKING TTS ENGINE")
+        print("-"*60)
+        try:
+            import pyttsx3
+            print("✅ pyttsx3 TTS library is installed")
+            
+            # Try to initialize TTS engine
+            try:
+                test_engine = pyttsx3.init()
+                voices = test_engine.getProperty('voices')
+                print(f"✅ TTS engine initialized successfully")
+                print(f"   Available voices: {len(voices)}")
+                test_engine.stop()
+                del test_engine
+            except Exception as e:
+                print(f"⚠️  TTS engine initialization issue: {e}")
+                print("   TTS may not work properly")
+        except ImportError:
+            print("❌ pyttsx3 library NOT found!")
+            print("   Please install: pip install pyttsx3")
+        
+        # Summary
+        print("\n" + "="*60)
+        print("🎯 SYSTEM VERIFICATION SUMMARY")
+        print("="*60)
+        available_models = self.get_available_models()
+        print(f"✅ Available models: {len(available_models)}")
+        if available_models:
+            for model in available_models:
+                info = SUPPORTED_MODELS.get(model, {})
+                print(f"   • {model}: {info.get('size', 'unknown size')}")
+        print(f"📁 Models directory: {self.models_dir}")
+        print(f"💾 Total cache size: {self.get_total_size()}")
+        print(f"🌐 Offline mode: {'✅ Ready' if available_models else '❌ Not ready'}")
+        print("="*60 + "\n")

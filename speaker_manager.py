@@ -9,16 +9,16 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 class SpeakerManager:
-    """说话人管理器"""
+    """Speaker manager"""
     
     def __init__(self, speakers_file="speakers.json"):
-        """初始化说话人管理器"""
+        """Initialize speaker manager"""
         self.speakers_file = os.path.abspath(speakers_file)
         self.speakers = self._load()
         print(f"✅ SpeakerManager loaded: {len(self.speakers)} speakers")
     
     def _load(self) -> Dict[str, Any]:
-        """加载说话人数据"""
+        """Load speaker data"""
         if os.path.exists(self.speakers_file):
             try:
                 with open(self.speakers_file, 'r', encoding='utf-8') as f:
@@ -28,7 +28,7 @@ class SpeakerManager:
         return {}
     
     def _save(self) -> bool:
-        """保存说话人数据"""
+        """Save speaker data"""
         try:
             temp_file = self.speakers_file + ".tmp"
             with open(temp_file, 'w', encoding='utf-8') as f:
@@ -43,7 +43,7 @@ class SpeakerManager:
             return False
     
     def add(self, name: str) -> Optional[str]:
-        """添加说话人"""
+        """Add speaker"""
         name = name.strip()
         if not name:
             return None
@@ -58,16 +58,16 @@ class SpeakerManager:
         return speaker_id
     
     def remove(self, speaker_id: str) -> bool:
-        """删除说话人"""
+        """Remove speaker"""
         if speaker_id in self.speakers:
             del self.speakers[speaker_id]
             return self._save()
         return False
     
     def get_all(self) -> Dict[str, Any]:
-        """获取所有说话人"""
+        """Get all speakers"""
         return self.speakers
     
     def get_name(self, speaker_id: str) -> str:
-        """获取说话人名称"""
+        """Get speaker name"""
         return self.speakers.get(speaker_id, {}).get("name", "Unknown")
