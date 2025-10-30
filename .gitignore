@@ -1,0 +1,7 @@
+# HuggingFace模型缓存
+local_models/
+hf_cache/
+*.bin
+*.pt
+*.ckpt
+*.h5
