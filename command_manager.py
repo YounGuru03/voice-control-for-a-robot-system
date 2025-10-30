@@ -8,14 +8,17 @@ from datetime import datetime
 from typing import List, Dict, Any
 import re
 
-class CommandHotwordManager:
-    """Integrated command and hotword manager"""
+class CommandManager:
+    """
+    Command management system with dynamic weight adjustment and training.
+    Handles command storage, usage statistics, and intelligent priority optimization.
+    """
     
     def __init__(self, data_file="commands_hotwords.json"):
-        """Initialize manager"""
+        """Initialize command manager"""
         self.data_file = os.path.abspath(data_file)
         self.data = self._load()
-        print(f"✅ CommandHotwordManager loaded: {len(self.data['commands'])} commands")
+        print(f"✅ CommandManager loaded: {len(self.data['commands'])} commands")
     
     def _load(self) -> Dict[str, Any]:
         """Load data"""

@@ -1,32 +1,33 @@
 # ============================================================================
-# requirements.txt - 优化的依赖文件
+# requirements.txt - Voice Control System Dependencies
 # ============================================================================
 
-# 核心语音识别
-faster-whisper>=0.10.0
-numpy>=1.21.0
-pyaudio>=0.2.11
+# Core Speech Recognition
+faster-whisper>=0.10.0      # Primary STT engine (Faster-Whisper)
+vosk>=0.3.45                # Alternative STT engine (Vosk)
+numpy>=1.21.0               # Numerical processing
+pyaudio>=0.2.11             # Audio I/O
 
-# TTS支持
-pyttsx3>=2.90
+# Text-to-Speech
+pyttsx3>=2.90               # Offline TTS engine
 
-# GUI框架
-# tkinter (通常内置在Python中)
+# GUI Framework
+# tkinter - Usually bundled with Python
 
-# 工具库
-requests>=2.25.0
+# Utilities
+requests>=2.25.0            # HTTP requests for model downloads
 
-# PyInstaller用于打包
-PyInstaller>=5.0.0
+# Build Tools
+PyInstaller>=5.0.0          # Executable packaging
 
-# 可选：更好的音频处理
-soundfile>=0.10.0
+# Optional: Enhanced Audio Processing
+soundfile>=0.10.0           # Audio file I/O
 
-# 可选：GPU支持 (如果需要)
+# Optional: GPU Support (uncomment if needed)
 # torch>=2.0.0
 # torchaudio>=2.0.0
 
-# 系统依赖说明:
-# Windows: 需要安装 Microsoft Visual C++ Redistributable
+# System Dependencies:
+# Windows: Microsoft Visual C++ Redistributable required
 # Linux: sudo apt-get install espeak espeak-data libespeak1 libespeak-dev portaudio19-dev python3-dev
 # macOS: brew install portaudio espeak

@@ -17,9 +17,9 @@ import pyaudio
 from typing import Optional, List, Dict, Any
 
 # Import optimized modules
-from command_hotword_manager import CommandHotwordManager
-from optimized_tts_manager import OptimizedTTSManager
-from local_model_manager import LocalModelManager
+from command_manager import CommandManager
+from tts_engine import TTSEngine
+from model_manager import ModelManager
 
 # Whisper backend detection
 BACKEND = None
@@ -34,15 +34,18 @@ except ImportError:
         BACKEND = "none"
         print("❌ WARNING: No Whisper backend available")
 
-class OptimizedAudioProcessor:
-    """Optimized audio processor - Fixed time interval and TTS issues"""
+class AudioEngine:
+    """
+    Core audio processing engine for offline voice control system.
+    Handles wake word detection, speech recognition, and command execution.
+    """
     
     # State definitions
     WAKE_STATE_INACTIVE = 0
     WAKE_STATE_ACTIVE = 1
     
     def __init__(self, model_size="base", language="en", device="cpu"):
-        """Initialize audio processor"""
+        """Initialize audio engine with specified model and language"""
         
         # Basic configuration
         self.language = language
@@ -62,21 +65,21 @@ class OptimizedAudioProcessor:
         self._last_error_message = None
         
         # Initialize managers
-        print("🔄 Initializing optimized processors...")
+        print("🔄 Initializing audio engine...")
         
-        # Command hotword manager
-        self.cmd_hotword_mgr = CommandHotwordManager()
+        # Command manager
+        self.cmd_hotword_mgr = CommandManager()
         
-        # TTS manager
-        self.tts_mgr = OptimizedTTSManager()
+        # TTS engine
+        self.tts_mgr = TTSEngine()
         
-        # Local model manager
-        self.model_mgr = LocalModelManager()
+        # Model manager
+        self.model_mgr = ModelManager()
         
         # Initialize Whisper model
         self._initialize_whisper_model()
         
-        print(f"✅ OptimizedAudioProcessor initialized")
+        print(f"✅ AudioEngine initialized")
         print(f"   Model: {model_size}, Backend: {BACKEND}")
     
     def _initialize_whisper_model(self):

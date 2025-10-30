@@ -1,5 +1,5 @@
 # ============================================================================
-# local_model_manager.py
+# model_manager.py - Multi-Backend STT Model Manager
 # ============================================================================
 
 import os
@@ -8,18 +8,41 @@ import json
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
-# Supported model configurations
-SUPPORTED_MODELS = {
-    "tiny": {"size": "~39MB", "memory": "~200MB", "speed": "fast"},
-    "base": {"size": "~74MB", "memory": "~400MB", "speed": "balanced"},
-    "small": {"size": "~244MB", "memory": "~1GB", "speed": "accurate"}
+# Supported Faster-Whisper model configurations
+SUPPORTED_WHISPER_MODELS = {
+    "tiny": {"size": "~39MB", "memory": "~200MB", "speed": "fast", "accuracy": "basic"},
+    "base": {"size": "~74MB", "memory": "~400MB", "speed": "balanced", "accuracy": "good"},
+    "small": {"size": "~244MB", "memory": "~1GB", "speed": "accurate", "accuracy": "high"}
 }
 
-class LocalModelManager:
-    """Smart local model manager with automatic download and offline capabilities"""
+# Supported Vosk model configurations
+SUPPORTED_VOSK_MODELS = {
+    "vosk-model-small-en-us-0.15": {
+        "size": "~40MB",
+        "language": "en-US",
+        "accuracy": "basic",
+        "url": "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
+    },
+    "vosk-model-en-us-0.22": {
+        "size": "~1.8GB",
+        "language": "en-US",
+        "accuracy": "high",
+        "url": "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22.zip"
+    }
+}
+
+# STT Engine types
+STT_ENGINE_WHISPER = "whisper"
+STT_ENGINE_VOSK = "vosk"
+
+class ModelManager:
+    """
+    Multi-backend model manager supporting Faster-Whisper, Vosk, and other STT engines.
+    Handles automatic model download, local caching, and offline operation.
+    """
     
     def __init__(self, models_dir="local_models"):
-        """Initialize model manager"""
+        """Initialize model manager with local storage directory"""
         self.models_dir = self._get_models_directory(models_dir)
         self.models_info_file = os.path.join(self.models_dir, "models_info.json")
         self.models_info = self._load_models_info()
@@ -30,7 +53,7 @@ class LocalModelManager:
         # Setup cache environment
         self._setup_cache_environment()
         
-        print(f"✅ LocalModelManager initialized: {self.models_dir}")
+        print(f"✅ ModelManager initialized: {self.models_dir}")
         
         # Verify models on startup
         self._verify_models_on_startup()
@@ -117,7 +140,7 @@ class LocalModelManager:
             # Update model info
             self.models_info["local_models"][model_name] = {
                 "status": "downloaded",
-                "size": SUPPORTED_MODELS.get(model_name, {}).get("size", "unknown"),
+                "size": SUPPORTED_WHISPER_MODELS.get(model_name, {}).get("size", "unknown"),
                 "downloaded_at": str(Path().absolute())
             }
             self._save_models_info()
@@ -154,7 +177,7 @@ class LocalModelManager:
                 # Update model info
                 self.models_info["local_models"][model_name] = {
                     "status": "loaded",
-                    "size": SUPPORTED_MODELS.get(model_name, {}).get("size", "unknown"),
+                    "size": SUPPORTED_WHISPER_MODELS.get(model_name, {}).get("size", "unknown"),
                     "loaded_at": str(Path().absolute())
                 }
                 self._save_models_info()
@@ -184,7 +207,7 @@ class LocalModelManager:
             
             self.models_info["local_models"][model_name] = {
                 "status": "fallback_loaded",
-                "size": SUPPORTED_MODELS.get(model_name, {}).get("size", "unknown"),
+                "size": SUPPORTED_WHISPER_MODELS.get(model_name, {}).get("size", "unknown"),
                 "loaded_at": str(Path().absolute())
             }
             self._save_models_info()
@@ -204,7 +227,7 @@ class LocalModelManager:
         print(f"🚀 Preloading models: {model_list}")
         
         for model_name in model_list:
-            if model_name in SUPPORTED_MODELS:
+            if model_name in SUPPORTED_WHISPER_MODELS:
                 if not self._check_local_model_cache(model_name):
                     print(f"📥 Preloading model: {model_name}")
                     self._download_model(model_name)
@@ -216,7 +239,7 @@ class LocalModelManager:
     def get_available_models(self) -> List[str]:
         """Get list of available models"""
         available = []
-        for model_name in SUPPORTED_MODELS.keys():
+        for model_name in SUPPORTED_WHISPER_MODELS.keys():
             if self.is_model_available(model_name):
                 available.append(model_name)
         return available
@@ -225,15 +248,15 @@ class LocalModelManager:
         """Get detailed model information"""
         if model_name in self.models_info["local_models"]:
             info = self.models_info["local_models"][model_name].copy()
-            if model_name in SUPPORTED_MODELS:
-                info.update(SUPPORTED_MODELS[model_name])
+            if model_name in SUPPORTED_WHISPER_MODELS:
+                info.update(SUPPORTED_WHISPER_MODELS[model_name])
             return info
         return None
 
     def validate_models(self) -> Dict[str, bool]:
         """Validate model availability"""
         validation_results = {}
-        for model_name in SUPPORTED_MODELS.keys():
+        for model_name in SUPPORTED_WHISPER_MODELS.keys():
             validation_results[model_name] = self.is_model_available(model_name)
         return validation_results
 
@@ -243,7 +266,7 @@ class LocalModelManager:
         total_mb = 0
         
         for model_name in available_models:
-            model_info = SUPPORTED_MODELS.get(model_name, {})
+            model_info = SUPPORTED_WHISPER_MODELS.get(model_name, {})
             size_str = model_info.get("size", "0MB")
             
             # Parse size string
@@ -354,7 +377,7 @@ class LocalModelManager:
         print(f"✅ Available models: {len(available_models)}")
         if available_models:
             for model in available_models:
-                info = SUPPORTED_MODELS.get(model, {})
+                info = SUPPORTED_WHISPER_MODELS.get(model, {})
                 print(f"   • {model}: {info.get('size', 'unknown size')}")
         print(f"📁 Models directory: {self.models_dir}")
         print(f"💾 Total cache size: {self.get_total_size()}")

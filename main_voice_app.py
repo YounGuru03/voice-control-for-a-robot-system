@@ -9,9 +9,9 @@ import os
 import time
 from datetime import datetime
 
-# Import optimized modules
-from optimized_audio_processor import OptimizedAudioProcessor
-from speaker_manager import SpeakerManager
+# Import core modules
+from audio_engine import AudioEngine
+from model_manager import ModelManager
 
 # Simplified color configuration
 COLORS = {
@@ -36,7 +36,7 @@ class VoiceControlApp:
     - Dynamic weight adjustment based on usage frequency and training
     - Full offline operation with local Faster-Whisper models
     - Comprehensive TTS feedback for all system states
-    - Five functional modules: Recognition, Commands, Training, Speakers, System
+    - Four functional modules: Recognition, Commands, Training, System
     - Automatic JSON data persistence for commands and training data
     - Multi-threaded architecture for responsive UI and audio processing
     """
@@ -61,7 +61,7 @@ class VoiceControlApp:
         
         # Initialize managers
         print("[INIT] Loading system components...")
-        self.spk_mgr = SpeakerManager()
+        self.model_mgr = ModelManager()
         self.audio = None
         
         # Build UI
@@ -101,9 +101,6 @@ class VoiceControlApp:
         self.tab_training = tk.Frame(notebook, bg=COLORS["bg"])
         notebook.add(self.tab_training, text="Train")
 
-        self.tab_speakers = tk.Frame(notebook, bg=COLORS["bg"])
-        notebook.add(self.tab_speakers, text="Speakers")
-
         self.tab_system = tk.Frame(notebook, bg=COLORS["bg"])
         notebook.add(self.tab_system, text="System")
 
@@ -111,7 +108,6 @@ class VoiceControlApp:
         self._build_recognition_tab()
         self._build_commands_tab()
         self._build_training_tab()
-        self._build_speakers_tab()
         self._build_system_tab()
     
     def _build_recognition_tab(self):
@@ -249,52 +245,6 @@ class VoiceControlApp:
 
         self._refresh_training()
     
-    def _build_speakers_tab(self):
-        """Build speakers tab"""
-        # All widgets must be created after tab_speakers is defined
-        label = tk.Label(self.tab_speakers, text="Speakers", 
-            font=("Arial", 14, "bold"), bg=COLORS["bg"])
-        label.pack(pady=15)
-
-        # Add speaker
-        add_spk_frame = tk.Frame(self.tab_speakers, bg=COLORS["bg"])
-        add_spk_frame.pack(pady=10)
-
-        tk.Label(add_spk_frame, text="Name", 
-            font=("Arial", 11), bg=COLORS["bg"]).pack(side=tk.LEFT, padx=5)
-
-        self.spk_entry = tk.Entry(add_spk_frame, font=("Arial", 11), width=25)
-        self.spk_entry.pack(side=tk.LEFT, padx=5)
-        self.spk_entry.bind("<Return>", lambda e: self._add_speaker())
-        tk.Button(add_spk_frame, text="Add", 
-             bg=COLORS["success"], fg="white",
-             command=self._add_speaker).pack(side=tk.LEFT, padx=5)
-
-        # Speaker list
-        spk_frame = tk.LabelFrame(self.tab_speakers, text="All Speakers", 
-                    font=("Arial", 11, "bold"), bg=COLORS["bg"])
-        spk_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
-
-        self.spk_tree = ttk.Treeview(spk_frame, columns=("ID", "Name"), 
-                                   show="headings", height=15)
-
-        self.spk_tree.heading("ID", text="ID")
-        self.spk_tree.heading("Name", text="Name")
-
-        self.spk_tree.column("ID", width=120)
-        self.spk_tree.column("Name", width=200)
-
-        self.spk_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
-
-        # Speaker buttons
-        spk_btn_frame = tk.Frame(spk_frame, bg=COLORS["bg"])
-        spk_btn_frame.pack(pady=5)
-        tk.Button(spk_btn_frame, text="Delete", 
-             bg=COLORS["danger"], fg="white",
-             command=self._delete_speaker).pack(side=tk.LEFT, padx=5)
-
-        self._refresh_speakers()
-    
     def _build_system_tab(self):
         """Build system tab"""
         # All widgets must be created after tab_system is defined
@@ -339,8 +289,8 @@ class VoiceControlApp:
         """Initialize audio processor"""
         def worker():
             try:
-                print("🔄 Initializing audio processor...")
-                self.audio = OptimizedAudioProcessor(
+                print("🔄 Initializing audio engine...")
+                self.audio = AudioEngine(
                     model_size="base",
                     language="en", 
                     device="cpu"
@@ -658,32 +608,6 @@ class VoiceControlApp:
             cmd_info = self.audio.cmd_hotword_mgr.get_command_info(cmd)
             weight = cmd_info.get("weight", 1.0)
             self.train_tree.insert("", tk.END, values=(cmd, count, f"{weight:.2f}"))
-    
-    def _add_speaker(self):
-        """Add speaker"""
-        name = self.spk_entry.get().strip()
-        if name and self.spk_mgr.add(name):
-            self.spk_entry.delete(0, tk.END)
-            self._refresh_speakers()
-    
-    def _delete_speaker(self):
-        """Delete speaker"""
-        selection = self.spk_tree.selection()
-        if selection:
-            item = self.spk_tree.item(selection[0])
-            spk_id = item["values"][0]
-            if self.spk_mgr.remove(spk_id):
-                self._refresh_speakers()
-    
-    def _refresh_speakers(self):
-        """Refresh speaker list"""
-        for item in self.spk_tree.get_children():
-            self.spk_tree.delete(item)
-        
-        speakers = self.spk_mgr.get_all()
-        for spk_id, spk_data in speakers.items():
-            name = spk_data.get("name", "Unknown") if isinstance(spk_data, dict) else spk_data
-            self.spk_tree.insert("", tk.END, values=(spk_id, name))
     
     def _refresh_system_status(self):
         """Refresh system status"""

@@ -21,11 +21,14 @@ except ImportError:
     print("❌ pyttsx3 not available")
 
 
-class OptimizedTTSManager:
-    """Optimized TTS manager - Enhanced fault tolerance and stability"""
+class TTSEngine:
+    """
+    Text-to-Speech engine with queue-based processing and fault tolerance.
+    Provides non-blocking voice feedback for system status and command confirmation.
+    """
 
     def __init__(self, config_file="tts_config.json"):
-        """Initialize TTS manager"""
+        """Initialize TTS engine with configuration"""
         self.config_file = os.path.abspath(config_file)
         self.config = self._load_config()
 
@@ -46,7 +49,7 @@ class OptimizedTTSManager:
         # Initialize engine
         self._initialize_engine()
 
-        print(f"✅ OptimizedTTSManager initialized with {TTS_TYPE}")
+        print(f"✅ TTSEngine initialized with {TTS_TYPE}")
 
     def _load_config(self) -> Dict[str, Any]:
         """Load configuration"""
