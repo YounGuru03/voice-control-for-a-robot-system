@@ -1,15 +1,23 @@
 # ============================================================================
-# requirements.txt - Voice Control System Dependencies
+# ============================================================================
+# Voice Control System v2 - Requirements
+# ============================================================================
+# Install with: pip install -r requirements.txt
+#
+# IMPORTANT: After installing pywin32, run:
+#   python Scripts/pywin32_postinstall.py -install
+# (Run as Administrator if needed)
 # ============================================================================
 
 # Core Speech Recognition
-faster-whisper>=0.10.0      # Primary STT engine (Faster-Whisper)
-vosk>=0.3.45                # Alternative STT engine (Vosk)
-numpy>=1.21.0               # Numerical processing
-pyaudio>=0.2.11             # Audio I/O
+faster-whisper>=0.10.0      # Primary STT engine (Faster-Whisper) - REQUIRED
+numpy>=1.21.0               # Numerical processing - REQUIRED
+pyaudio>=0.2.11             # Audio I/O - REQUIRED
 
-# Text-to-Speech
-pyttsx3>=2.90               # Offline TTS engine
+# Windows TTS (v2 - CRITICAL)
+pywin32>=305                # Windows COM/SAPI support - REQUIRED FOR TTS
+                            # IMPORTANT: Run post-install script after installing:
+                            #   python Scripts/pywin32_postinstall.py -install
 
 # GUI Framework
 # tkinter - Usually bundled with Python

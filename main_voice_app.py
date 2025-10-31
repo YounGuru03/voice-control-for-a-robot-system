@@ -1,666 +1,1097 @@
 # ============================================================================
-# main_voice_app.py
+# main_voice_app.py - Enhanced Voice Control Application (FIXED & DECOUPLED)
 # ============================================================================
 
 import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox
+from tkinter import ttk, scrolledtext, messagebox, filedialog
 import threading
-import os
 import time
+import traceback
 from datetime import datetime
+from typing import Optional, Dict, Any, List
 
-# Import core modules
-from audio_engine import AudioEngine
-from model_manager import ModelManager
+# Import optimized core modules
+try:
+    from audio_engine_v2 import AudioEngine
+    print("[INIT] Using enhanced AudioEngine")
+except ImportError:
+    from audio_engine import AudioEngine
+    print("[INIT] Using standard AudioEngine")
+    
+from model_manager import SUPPORTED_MODELS
 
-# Simplified color configuration
+# ============================================================================
+# UI Configuration
+# ============================================================================
+
 COLORS = {
     "bg": "#F8F9FA",
-    "primary": "#007BFF", 
-    "success": "#28A745",
-    "danger": "#DC3545",
-    "warning": "#FFC107",
+    "bg_dark": "#2C3E50", 
+    "primary": "#4A90E2",
+    "success": "#50C878",
+    "danger": "#E74C3C",
+    "warning": "#FF9800",
     "secondary": "#6C757D",
     "light": "#F8F9FA",
-    "dark": "#343A40"
+    "dark": "#343A40",
+    "border": "#DEE2E6",
+    "text": "#2C3E50"
 }
 
-class VoiceControlApp:
+FONTS = {
+    "title": ("Segoe UI", 14, "bold"),
+    "body": ("Segoe UI", 10),
+    "small": ("Segoe UI", 9),
+    "mono": ("Consolas", 9)
+}
+
+# ============================================================================
+# System Health Monitor (New Component for Error Isolation)
+# ============================================================================
+
+class SystemHealthMonitor:
     """
-    Offline Voice Control System - Faster-Whisper Based Intelligent Voice Recognition
+    独立的系统健康监视器
+    用于快速定位问题和隔离错误
+    """
+    def __init__(self):
+        self.components = {
+            "audio_engine": {"status": "pending", "error": None},
+            "model_manager": {"status": "pending", "error": None},
+            "command_manager": {"status": "pending", "error": None},
+            "tts_engine": {"status": "pending", "error": None},
+            "model_loaded": {"status": "pending", "error": None}
+        }
+        self.init_start_time = time.time()
+        self.init_complete = False
+        
+    def update_component(self, component: str, status: str, error: str = None):
+        """Update component status"""
+        if component in self.components:
+            self.components[component]["status"] = status
+            self.components[component]["error"] = error
+            print(f"[HEALTH] {component}: {status}" + (f" - {error}" if error else ""))
     
-    Features:
-    - Two-stage working mode: Standby → Wake Word → Command Recognition
-    - Wake word: 'susie' - Activates command recognition mode
-    - Automatic hotword boost for improved recognition accuracy
-    - Dynamic weight adjustment based on usage frequency and training
-    - Full offline operation with local Faster-Whisper models
-    - Comprehensive TTS feedback for all system states
-    - Four functional modules: Recognition, Commands, Training, System
-    - Automatic JSON data persistence for commands and training data
-    - Multi-threaded architecture for responsive UI and audio processing
-    """
+    def get_failed_components(self) -> List[str]:
+        """Get list of failed components"""
+        return [name for name, info in self.components.items() 
+                if info["status"] == "failed"]
+    
+    def is_system_ready(self) -> bool:
+        """Check if system is fully ready"""
+        critical = ["audio_engine", "model_manager", "model_loaded"]
+        for comp in critical:
+            if self.components[comp]["status"] != "ready":
+                return False
+        return True
+    
+    def get_status_report(self) -> str:
+        """Generate detailed status report"""
+        elapsed = time.time() - self.init_start_time
+        report = f"=== SYSTEM INITIALIZATION REPORT ===\n"
+        report += f"Elapsed Time: {elapsed:.2f}s\n"
+        report += f"System Ready: {self.is_system_ready()}\n\n"
+        
+        for component, info in self.components.items():
+            status = info["status"].upper()
+            report += f"{component}: {status}\n"
+            if info["error"]:
+                report += f"  Error: {info["error"]}\n"
+        
+        failed = self.get_failed_components()
+        if failed:
+            report += f"\nFailed Components: {', '.join(failed)}\n"
+        
+        return report
+
+
+# ============================================================================
+# Main Application Class
+# ============================================================================
+
+class VoiceControlApp:
     
     def __init__(self, root):
         self.root = root
-        self.root.title("Offline Voice Control System - Faster-Whisper Based")
-        self.root.geometry("800x700")
+        self.root.title("Voice Control System v2.0 - Enhanced")
+        self.root.geometry("1000x750")
         self.root.configure(bg=COLORS["bg"])
+        self.root.minsize(900, 650)
         
-        # State variables
-        self.STATE_IDLE = "IDLE"
-        self.STATE_LISTEN_WAKE = "LISTEN_WAKE"
-        self.STATE_CMD_MODE = "CMD_MODE"
-        self.state = self.STATE_IDLE
+        # Health monitor (for error isolation)
+        self.health_monitor = SystemHealthMonitor()
+        
+        # Application state
+        self.audio_engine: Optional[AudioEngine] = None
         self.is_listening = False
-        self.fail_count = 0
+        self.is_processing = False
+        self.current_state = "Initializing"
+        self.system_ready = False
         
-        # Thread control
+        # Selected options
+        self.selected_model = tk.StringVar(value="base")
+        self.selected_voice = tk.StringVar(value="Default")
+        self.available_voices = []
+        
+        # Thread management 
         self.recognition_thread = None
-        self._stop_flag = threading.Event()
+        self.stop_event = threading.Event()
+        self.ui_update_thread = None
         
-        # Initialize managers
-        print("[INIT] Loading system components...")
-        self.model_mgr = ModelManager()
-        self.audio = None
+        # UI update queue (thread-safe)
+        self.ui_updates = []
+        self.ui_lock = threading.Lock()
         
-        # Build UI
+        # Auto-refresh settings
+        self.auto_refresh_enabled = True
+        self.auto_refresh_interval = 5000  # 5 seconds
+        
+        # Build UI first
+        print("[INIT] Building user interface...")
         self._build_ui()
         
-        # Initialize audio processor
-        self._init_audio()
+        # Initialize system asynchronously
+        print("[INIT] Starting asynchronous system initialization...")
+        self._init_system_async()
+        
+        # Start UI update loop
+        self._start_ui_updates()
+        
+        # Start auto-refresh timer
+        if self.auto_refresh_enabled:
+            self._start_auto_refresh()
+        
+        print("[INIT] VoiceControlApp initialized")
     
     def _build_ui(self):
-        """Build simplified user interface"""
+        """Build the user interface"""
+        
         # Header
         header = tk.Frame(self.root, bg=COLORS["primary"], height=60)
         header.pack(fill=tk.X)
         header.pack_propagate(False)
-
-        title_label = tk.Label(header, text="Voice Control", 
-                  font=("Arial", 16, "bold"), 
-                  bg=COLORS["primary"], fg="white")
+        
+        title_label = tk.Label(header, text="Voice Control System - Enhanced",
+                              font=("Segoe UI", 16, "bold"),
+                              bg=COLORS["primary"], fg="white")
         title_label.pack(side=tk.LEFT, padx=20, pady=15)
-
+        
         # Status indicator
         self.status_var = tk.StringVar(value="Initializing...")
         status_label = tk.Label(header, textvariable=self.status_var,
-                               font=("Arial", 10), bg=COLORS["primary"], fg="white")
+                               font=FONTS["body"], bg=COLORS["primary"], fg="white")
         status_label.pack(side=tk.RIGHT, padx=20, pady=15)
-
-        # Main tabs
+        
+        # Main content with tabs
         notebook = ttk.Notebook(self.root)
         notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-
-        self.tab_recognition = tk.Frame(notebook, bg=COLORS["bg"])
-        notebook.add(self.tab_recognition, text="Listen")
-
+        
+        # Create tabs
+        self.tab_listen = tk.Frame(notebook, bg=COLORS["bg"])
+        notebook.add(self.tab_listen, text="Listen")
+        
         self.tab_commands = tk.Frame(notebook, bg=COLORS["bg"])
         notebook.add(self.tab_commands, text="Commands")
-
+        
         self.tab_training = tk.Frame(notebook, bg=COLORS["bg"])
-        notebook.add(self.tab_training, text="Train")
-
+        notebook.add(self.tab_training, text="Training")
+        
         self.tab_system = tk.Frame(notebook, bg=COLORS["bg"])
         notebook.add(self.tab_system, text="System")
-
+        
         # Build each tab
-        self._build_recognition_tab()
+        self._build_listen_tab()
         self._build_commands_tab()
         self._build_training_tab()
         self._build_system_tab()
     
-    def _build_recognition_tab(self):
-        """Build recognition tab"""
+    def _build_listen_tab(self):
+        """Build the listening/recognition tab"""
+        
         # Title
-        tk.Label(self.tab_recognition, text="Listen", 
-            font=("Arial", 14, "bold"), bg=COLORS["bg"]).pack(pady=15)
-
-        # Status info
-        status_info_frame = tk.LabelFrame(self.tab_recognition, text="Status", 
-                                        font=("Arial", 11, "bold"), bg=COLORS["bg"])
-        status_info_frame.pack(fill=tk.X, padx=20, pady=10)
-
-        self.detailed_status_var = tk.StringVar(value="Starting...")
-        detailed_status_label = tk.Label(status_info_frame, textvariable=self.detailed_status_var,
-                                        font=("Arial", 10), bg=COLORS["bg"], fg=COLORS["dark"],
-                                        justify=tk.LEFT, wraplength=600)
-        detailed_status_label.pack(padx=10, pady=5)
-
+        tk.Label(self.tab_listen, text="Voice Recognition",
+                font=FONTS["title"], bg=COLORS["bg"]).pack(pady=15)
+        
+        # Status display
+        status_frame = tk.Frame(self.tab_listen, bg=COLORS["bg_dark"], relief=tk.RAISED, bd=2)
+        status_frame.pack(fill=tk.X, padx=20, pady=10)
+        
+        self.detailed_status_var = tk.StringVar(value="System starting up...")
+        status_label = tk.Label(status_frame, textvariable=self.detailed_status_var,
+                               font=("Segoe UI", 11), bg=COLORS["bg_dark"], fg="white",
+                               justify=tk.LEFT, wraplength=700, pady=15, padx=15)
+        status_label.pack(fill=tk.X)
+        
         # Control buttons
-        btn_frame = tk.Frame(self.tab_recognition, bg=COLORS["bg"])
+        btn_frame = tk.Frame(self.tab_listen, bg=COLORS["bg"])
         btn_frame.pack(pady=20)
-
-        self.btn_start = tk.Button(btn_frame, text="Start", 
-                      font=("Arial", 12, "bold"),
-                      bg=COLORS["success"], fg="white", 
-                      width=12, height=2, 
-                      command=self._start_listening,
-                      state=tk.DISABLED)
+        
+        self.btn_start = tk.Button(btn_frame, text="Start Listening",
+                                  font=("Segoe UI", 12, "bold"),
+                                  bg=COLORS["success"], fg="white",
+                                  width=15, height=2,
+                                  command=self._start_listening,
+                                  state=tk.DISABLED,
+                                  relief=tk.FLAT, bd=0, cursor="hand2")
         self.btn_start.pack(side=tk.LEFT, padx=10)
-
-        self.btn_stop = tk.Button(btn_frame, text="Stop", 
-                     font=("Arial", 12, "bold"),
-                     bg=COLORS["danger"], fg="white", 
-                     width=12, height=2,
-                     command=self._stop_listening,
-                     state=tk.DISABLED)
+        
+        self.btn_stop = tk.Button(btn_frame, text="Stop Listening",
+                                 font=("Segoe UI", 12, "bold"),
+                                 bg=COLORS["danger"], fg="white",
+                                 width=15, height=2,
+                                 command=self._stop_listening,
+                                 state=tk.DISABLED,
+                                 relief=tk.FLAT, bd=0, cursor="hand2")
         self.btn_stop.pack(side=tk.LEFT, padx=10)
-
+        
         # Results area
-        result_frame = tk.LabelFrame(self.tab_recognition, text="Results", 
-                                   font=("Arial", 11, "bold"), bg=COLORS["bg"])
+        result_frame = tk.LabelFrame(self.tab_listen, text="Activity Log",
+                                    font=FONTS["body"], bg=COLORS["bg"])
         result_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
-
-        # Results text
-        self.result_text = scrolledtext.ScrolledText(result_frame, 
-                                                   font=("Consolas", 10),
-                                                   bg="white", height=12, 
-                                                   wrap=tk.WORD)
+        
+        self.result_text = scrolledtext.ScrolledText(result_frame,
+                                                    font=FONTS["mono"],
+                                                    bg="white", height=15,
+                                                    wrap=tk.WORD)
         self.result_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-
+        
         # Clear button
-        clear_btn = tk.Button(result_frame, text="Clear", 
-                            bg=COLORS["secondary"], fg="white",
-                            command=lambda: self.result_text.delete("1.0", tk.END))
+        clear_btn = tk.Button(result_frame, text="Clear Log",
+                             bg=COLORS["secondary"], fg="white",
+                             relief=tk.FLAT, bd=0,
+                             command=lambda: self.result_text.delete("1.0", tk.END))
         clear_btn.pack(pady=5)
     
     def _build_commands_tab(self):
-        """Build commands tab"""
-        tk.Label(self.tab_commands, text="Commands", 
-            font=("Arial", 14, "bold"), bg=COLORS["bg"]).pack(pady=15)
-
-        # Add command
+        """Build the commands management tab"""
+        
+        tk.Label(self.tab_commands, text="Command Management",
+                font=FONTS["title"], bg=COLORS["bg"]).pack(pady=15)
+        
+        # Add command section
         add_frame = tk.Frame(self.tab_commands, bg=COLORS["bg"])
         add_frame.pack(pady=10)
-
-        tk.Label(add_frame, text="New", 
-            font=("Arial", 11), bg=COLORS["bg"]).pack(side=tk.LEFT, padx=5)
-
-        self.cmd_entry = tk.Entry(add_frame, font=("Arial", 11), width=30)
+        
+        tk.Label(add_frame, text="New Command:",
+                font=FONTS["body"], bg=COLORS["bg"]).pack(side=tk.LEFT, padx=5)
+        
+        self.cmd_entry = tk.Entry(add_frame, font=FONTS["body"], width=30)
         self.cmd_entry.pack(side=tk.LEFT, padx=5)
         self.cmd_entry.bind("<Return>", lambda e: self._add_command())
-
-        tk.Button(add_frame, text="Add", 
-             bg=COLORS["success"], fg="white",
-             command=self._add_command).pack(side=tk.LEFT, padx=5)
-
-        # Command list
-        list_frame = tk.LabelFrame(self.tab_commands, text="All Commands", 
-                     font=("Arial", 11, "bold"), bg=COLORS["bg"])
+        
+        tk.Button(add_frame, text="Add Command",
+                 bg=COLORS["success"], fg="white",
+                 relief=tk.FLAT, bd=0,
+                 command=self._add_command).pack(side=tk.LEFT, padx=5)
+        
+        # Commands list
+        list_frame = tk.LabelFrame(self.tab_commands, text="Commands",
+                                  font=FONTS["body"], bg=COLORS["bg"])
         list_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
-
-        self.cmd_listbox = tk.Listbox(list_frame, font=("Arial", 10), height=15)
-        self.cmd_listbox.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
-
+        
+        # Treeview for commands
+        self.cmd_tree = ttk.Treeview(list_frame, columns=("Command", "Weight", "Usage"), 
+                                    show="headings", height=15)
+        self.cmd_tree.heading("Command", text="Command")
+        self.cmd_tree.heading("Weight", text="Weight")
+        self.cmd_tree.heading("Usage", text="Usage Count")
+        
+        self.cmd_tree.column("Command", width=300)
+        self.cmd_tree.column("Weight", width=100)
+        self.cmd_tree.column("Usage", width=100)
+        
+        self.cmd_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        
         # Command buttons
         cmd_btn_frame = tk.Frame(list_frame, bg=COLORS["bg"])
         cmd_btn_frame.pack(pady=5)
-
-        tk.Button(cmd_btn_frame, text="Refresh", 
-             bg=COLORS["primary"], fg="white",
-             command=self._refresh_commands).pack(side=tk.LEFT, padx=5)
-
-        tk.Button(cmd_btn_frame, text="Delete", 
-             bg=COLORS["danger"], fg="white",
-             command=self._delete_command).pack(side=tk.LEFT, padx=5)
-
-        self._refresh_commands()
+        
+        tk.Button(cmd_btn_frame, text="Refresh",
+                 bg=COLORS["primary"], fg="white",
+                 relief=tk.FLAT, bd=0,
+                 command=self._refresh_commands).pack(side=tk.LEFT, padx=5)
+        
+        tk.Button(cmd_btn_frame, text="Delete Selected",
+                 bg=COLORS["danger"], fg="white",
+                 relief=tk.FLAT, bd=0,
+                 command=self._delete_command).pack(side=tk.LEFT, padx=5)
+        
+        tk.Button(cmd_btn_frame, text="Reload JSON",
+                 bg=COLORS["warning"], fg="white",
+                 relief=tk.FLAT, bd=0,
+                 command=self._reload_commands_json).pack(side=tk.LEFT, padx=5)
     
     def _build_training_tab(self):
-        """Build training tab"""
-        tk.Label(self.tab_training, text="Train", 
-            font=("Arial", 14, "bold"), bg=COLORS["bg"]).pack(pady=15)
-
+        """Build the training tab"""
+        
+        tk.Label(self.tab_training, text="Command Training",
+                font=FONTS["title"], bg=COLORS["bg"]).pack(pady=15)
+        
         # Training list
-        train_frame = tk.LabelFrame(self.tab_training, text="Progress", 
-                      font=("Arial", 11, "bold"), bg=COLORS["bg"])
+        train_frame = tk.LabelFrame(self.tab_training, text="Training Progress",
+                                   font=FONTS["body"], bg=COLORS["bg"])
         train_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
-
-        self.train_tree = ttk.Treeview(train_frame, 
-                                     columns=("Command", "Count", "Weight"), 
-                                     show="headings", height=15)
-
+        
+        self.train_tree = ttk.Treeview(train_frame,
+                                      columns=("Command", "Count", "Weight"),
+                                      show="headings", height=15)
         self.train_tree.heading("Command", text="Command")
-        self.train_tree.heading("Count", text="Count")
+        self.train_tree.heading("Count", text="Usage Count")
         self.train_tree.heading("Weight", text="Weight")
-
-        self.train_tree.column("Command", width=250)
-        self.train_tree.column("Count", width=100)
+        
+        self.train_tree.column("Command", width=300)
+        self.train_tree.column("Count", width=120)
         self.train_tree.column("Weight", width=120)
-
+        
         self.train_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
-
+        
         # Training buttons
         train_btn_frame = tk.Frame(train_frame, bg=COLORS["bg"])
         train_btn_frame.pack(pady=10)
-
-        tk.Button(train_btn_frame, text="Refresh", 
+        
+        tk.Button(train_btn_frame, text="Refresh",
                  bg=COLORS["primary"], fg="white",
+                 relief=tk.FLAT, bd=0,
                  command=self._refresh_training).pack(side=tk.LEFT, padx=5)
-
-        tk.Button(train_btn_frame, text="Train", 
-                 bg=COLORS["warning"], fg="black",
+        
+        tk.Button(train_btn_frame, text="Train Selected",
+                 bg=COLORS["warning"], fg="white",
+                 relief=tk.FLAT, bd=0,
                  command=self._train_command).pack(side=tk.LEFT, padx=5)
-
-        self._refresh_training()
     
     def _build_system_tab(self):
-        """Build system tab"""
-        # All widgets must be created after tab_system is defined
-        label = tk.Label(self.tab_system, text="System", 
-            font=("Arial", 14, "bold"), bg=COLORS["bg"])
-        label.pack(pady=15)
-
+        """Build the system monitoring tab"""
+        
+        tk.Label(self.tab_system, text="System Configuration",
+                font=FONTS["title"], bg=COLORS["bg"]).pack(pady=15)
+        
+        # Configuration panel
+        config_frame = tk.Frame(self.tab_system, bg="white", relief=tk.RAISED, bd=1)
+        config_frame.pack(fill=tk.X, padx=20, pady=10)
+        
+        config_inner = tk.Frame(config_frame, bg="white")
+        config_inner.pack(fill=tk.X, padx=15, pady=15)
+        
+        # Model selection
+        tk.Label(config_inner, text="STT Model:", font=FONTS["body"], bg="white").grid(row=0, column=0, sticky="w")
+        
+        self.model_combo = ttk.Combobox(config_inner, textvariable=self.selected_model,
+                                       values=list(SUPPORTED_MODELS.keys()),
+                                       state="readonly", width=15)
+        self.model_combo.grid(row=1, column=0, padx=(0, 15), pady=(5, 0), sticky="w")
+        self.model_combo.bind("<<ComboboxSelected>>", self._on_model_change)
+        
+        # Voice selection
+        tk.Label(config_inner, text="TTS Voice:", font=FONTS["body"], bg="white").grid(row=0, column=1, sticky="w")
+        
+        self.voice_combo = ttk.Combobox(config_inner, textvariable=self.selected_voice,
+                                       values=["Default"], state="readonly", width=25)
+        self.voice_combo.grid(row=1, column=1, padx=(15, 15), pady=(5, 0), sticky="w")
+        self.voice_combo.bind("<<ComboboxSelected>>", self._on_voice_change)
+        
+        # Preview button
+        tk.Button(config_inner, text="Test Voice", bg=COLORS["secondary"], fg="white",
+                 relief=tk.FLAT, bd=0, command=self._test_voice).grid(row=1, column=2, padx=(15, 0), pady=(5, 0))
+        
         # System status
-        status_frame = tk.LabelFrame(self.tab_system, text="Status", 
-                                   font=("Arial", 11, "bold"), bg=COLORS["bg"])
+        status_frame = tk.LabelFrame(self.tab_system, text="System Status",
+                                    font=FONTS["body"], bg=COLORS["bg"])
         status_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
-
-        self.system_status_text = tk.Text(status_frame, 
-                                        font=("Consolas", 9), 
-                                        height=20, state=tk.DISABLED,
-                                        bg="white")
-        self.system_status_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
-
+        
+        self.system_text = tk.Text(status_frame,
+                                  font=FONTS["mono"],
+                                  height=20, state=tk.DISABLED,
+                                  bg="white")
+        self.system_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        
         # System buttons
         sys_btn_frame = tk.Frame(status_frame, bg=COLORS["bg"])
         sys_btn_frame.pack(pady=10)
-
-        tk.Button(sys_btn_frame, text="Refresh Status", 
+        
+        tk.Button(sys_btn_frame, text="Refresh Status",
                  bg=COLORS["primary"], fg="white",
+                 relief=tk.FLAT, bd=0,
                  command=self._refresh_system_status).pack(side=tk.LEFT, padx=5)
-
-        tk.Button(sys_btn_frame, text="Refresh Commands", 
+        
+        tk.Button(sys_btn_frame, text="Health Check",
                  bg=COLORS["success"], fg="white",
-                 command=self._refresh_commands).pack(side=tk.LEFT, padx=5)
-
-        tk.Button(sys_btn_frame, text="Refresh Training", 
-                 bg=COLORS["warning"], fg="black",
-                 command=self._refresh_training).pack(side=tk.LEFT, padx=5)
-
-        tk.Button(sys_btn_frame, text="Save Log", 
+                 relief=tk.FLAT, bd=0,
+                 command=self._show_health_report).pack(side=tk.LEFT, padx=5)
+        
+        tk.Button(sys_btn_frame, text="Save Log",
                  bg=COLORS["secondary"], fg="white",
-                 command=self._save_system_log).pack(side=tk.LEFT, padx=5)
-
-        self._refresh_system_status()
+                 relief=tk.FLAT, bd=0,
+                 command=self._save_log).pack(side=tk.LEFT, padx=5)
     
-    def _init_audio(self):
-        """Initialize audio processor"""
-        def worker():
+    # ========================================================================
+    # System Initialization (ENHANCED WITH HEALTH MONITORING)
+    # ========================================================================
+    
+    def _init_system_async(self):
+        """增强的异步系统初始化 - 带健康监控和错误隔离"""
+        def _init():
             try:
-                print("🔄 Initializing audio engine...")
-                self.audio = AudioEngine(
-                    model_size="base",
-                    language="en", 
-                    device="cpu"
-                )
-                self.root.after(0, lambda: self._update_status("System Ready"))
-                self.root.after(0, lambda: self._update_detailed_status("System initialized successfully. Ready to start listening."))
-                self.root.after(0, lambda: self.btn_start.config(state=tk.NORMAL))
-                self.root.after(0, lambda: self._append_result("✅ Voice Control System initialized successfully"))
-                # Auto-refresh commands, training, and system status after audio loads
-                self.root.after(0, self._refresh_commands)
-                self.root.after(0, self._refresh_training)
-                self.root.after(0, self._refresh_system_status)
-                # TTS announce system ready
-                if self.audio and self.audio.tts_mgr:
-                    time.sleep(1.0)  # Wait for TTS to fully initialize
-                    self.audio.tts_mgr.speak_status("ready")
+                self._queue_ui_update(lambda: self._update_status("Initializing..."))
+                self._queue_ui_update(lambda: self._update_detailed_status("Step 1/5: Initializing audio engine..."))
+                self._queue_ui_update(lambda: self._log("[INIT] Starting system initialization..."))
+                
+                # Step 1: Initialize Audio Engine (with error isolation)
+                try:
+                    print("[INIT] Step 1: Creating AudioEngine instance...")
+                    self.audio_engine = AudioEngine()
+                    self.health_monitor.update_component("audio_engine", "ready")
+                    self._queue_ui_update(lambda: self._log("[OK] Audio engine created"))
+                except Exception as e:
+                    error_msg = f"Audio engine initialization failed: {e}"
+                    self.health_monitor.update_component("audio_engine", "failed", str(e))
+                    self._queue_ui_update(lambda: self._log(f"[ERROR] {error_msg}"))
+                    print(f"[ERROR] {error_msg}")
+                    traceback.print_exc()
+                    self._handle_init_failure("Audio Engine")
+                    return
+                
+                # Step 2: Wait for Model to Load (with timeout)
+                self._queue_ui_update(lambda: self._update_detailed_status("Step 2/5: Loading speech recognition model..."))
+                self._queue_ui_update(lambda: self._log("[INIT] Waiting for model to load..."))
+                
+                print("[INIT] Step 2: Waiting for model (30s timeout)...")
+                if self.audio_engine.wait_for_model(30):
+                    self.health_monitor.update_component("model_loaded", "ready")
+                    self._queue_ui_update(lambda: self._log("[OK] Model loaded successfully"))
+                    print("[INIT] Model loaded successfully")
+                else:
+                    self.health_monitor.update_component("model_loaded", "failed", "Timeout waiting for model")
+                    self._queue_ui_update(lambda: self._log("[ERROR] Model loading timeout"))
+                    print("[ERROR] Model loading failed or timeout")
+                    self._handle_init_failure("Model Loading")
+                    return
+                
+                # Step 3: Verify Model Manager
+                self._queue_ui_update(lambda: self._update_detailed_status("Step 3/5: Verifying model manager..."))
+                try:
+                    if hasattr(self.audio_engine, 'model_mgr') and self.audio_engine.model_mgr:
+                        self.health_monitor.update_component("model_manager", "ready")
+                        self._queue_ui_update(lambda: self._log("[OK] Model manager verified"))
+                    else:
+                        raise Exception("Model manager not available")
+                except Exception as e:
+                    err = f"Model manager verification failed: {e}"
+                    self.health_monitor.update_component("model_manager", "failed", str(e))
+                    self._queue_ui_update(lambda err=err: self._log(f"[ERROR] {err}"))
+                
+                # Step 4: Verify Command Manager
+                self._queue_ui_update(lambda: self._update_detailed_status("Step 4/5: Loading command manager..."))
+                try:
+                    if hasattr(self.audio_engine, 'cmd_hotword_mgr') and self.audio_engine.cmd_hotword_mgr:
+                        # Auto-load commands from JSON
+                        self._queue_ui_update(lambda: self._log("[INIT] Auto-loading commands from JSON..."))
+                        self.audio_engine.cmd_hotword_mgr.load_commands_from_json()
+                        self.health_monitor.update_component("command_manager", "ready")
+                        self._queue_ui_update(lambda: self._log("[OK] Command manager ready"))
+                    else:
+                        raise Exception("Command manager not available")
+                except Exception as e:
+                    err = f"Command manager verification failed: {e}"
+                    self.health_monitor.update_component("command_manager", "failed", str(e))
+                    self._queue_ui_update(lambda err=err: self._log(f"[ERROR] {err}"))
+                
+                # Step 5: Verify TTS Engine
+                self._queue_ui_update(lambda: self._update_detailed_status("Step 5/5: Initializing TTS engine..."))
+                try:
+                    if hasattr(self.audio_engine, 'tts_mgr') and self.audio_engine.tts_mgr:
+                        self.health_monitor.update_component("tts_engine", "ready")
+                        self._queue_ui_update(lambda: self._log("[OK] TTS engine ready"))
+                    else:
+                        self.health_monitor.update_component("tts_engine", "warning", "TTS not available")
+                        self._queue_ui_update(lambda: self._log("[WARNING] TTS engine not available"))
+                except Exception as e:
+                    warn = f"TTS engine issue: {e}"
+                    self.health_monitor.update_component("tts_engine", "failed", str(e))
+                    self._queue_ui_update(lambda warn=warn: self._log(f"[WARNING] {warn}"))
+                
+                # Check if system is ready
+                if self.health_monitor.is_system_ready():
+                    self.system_ready = True
+                    self._queue_ui_update(lambda: self._update_status("Ready"))
+                    self._queue_ui_update(lambda: self._update_detailed_status("System ready! Click 'Start Listening' to begin."))
+                    self._queue_ui_update(lambda: self.btn_start.config(state=tk.NORMAL))
+                    self._queue_ui_update(lambda: self._log("[SUCCESS] System initialized successfully!"))
+                    
+                    # Populate UI controls
+                    self._queue_ui_update(self._populate_controls)
+                    self._queue_ui_update(self._refresh_commands)
+                    self._queue_ui_update(self._refresh_training)
+                    self._queue_ui_update(self._refresh_system_status)
+                    
+                    # TTS announcement (ONLY if system is actually ready)
+                    if self.audio_engine.tts_mgr:
+                        time.sleep(0.5)
+                        self.audio_engine.tts_mgr.speak_status("ready")
+                    
+                    print("[SUCCESS] System initialization complete!")
+                else:
+                    failed = self.health_monitor.get_failed_components()
+                    error_msg = f"System partially initialized. Failed components: {', '.join(failed)}"
+                    self._queue_ui_update(lambda: self._update_status("Partially Ready"))
+                    self._queue_ui_update(lambda: self._update_detailed_status(error_msg))
+                    self._queue_ui_update(lambda: self._log(f"[WARNING] {error_msg}"))
+                    print(f"[WARNING] {error_msg}")
+                    
             except Exception as e:
-                error_msg = f"System initialization failed: {e}"
-                self.root.after(0, lambda: self._update_status("Initialization Failed"))
-                self.root.after(0, lambda: self._update_detailed_status(f"Initialization error: {e}"))
-                self.root.after(0, lambda: self._append_result(f"❌ {error_msg}"))
-                # Auto-refresh system status on error
-                self.root.after(0, self._refresh_system_status)
-                print(f"❌ Audio initialization error: {e}")
-                # TTS announce error
-                if self.audio and self.audio.tts_mgr:
-                    self.audio.tts_mgr.speak_status("error")
-        threading.Thread(target=worker, daemon=True).start()
+                error_msg = f"Critical system initialization error: {e}"
+                self._queue_ui_update(lambda: self._update_status("Initialization Failed"))
+                self._queue_ui_update(lambda: self._update_detailed_status(error_msg))
+                self._queue_ui_update(lambda: self._log(f"[CRITICAL] {error_msg}"))
+                print(f"[CRITICAL] {error_msg}")
+                traceback.print_exc()
+        
+        # Start initialization in background
+        threading.Thread(target=_init, daemon=True, name="SystemInit").start()
     
-    def _start_listening(self):
-        """Start listening (Fixed business logic)"""
-        if not self.audio or self.is_listening:
+    def _handle_init_failure(self, component: str):
+        """Handle initialization failure"""
+        self._queue_ui_update(lambda: self._update_status(f"{component} Failed"))
+        self._queue_ui_update(lambda: self._update_detailed_status(
+            f"Failed to initialize {component}. Check console for details."))
+        self._queue_ui_update(lambda: self._log(f"[FAILED] {component} initialization failed"))
+    
+    # ========================================================================
+    # UI Update Queue System
+    # ========================================================================
+    
+    def _queue_ui_update(self, update_func):
+        """Queue a UI update to be processed in the main thread"""
+        with self.ui_lock:
+            self.ui_updates.append(update_func)
+    
+    def _start_ui_updates(self):
+        """Start the UI update processing loop"""
+        def _process_updates():
+            with self.ui_lock:
+                updates = self.ui_updates.copy()
+                self.ui_updates.clear()
+            
+            # Process updates in main thread
+            for update_func in updates:
+                try:
+                    update_func()
+                except Exception as e:
+                    print(f"[ERROR] UI update error: {e}")
+            
+            # Schedule next update
+            self.root.after(50, _process_updates)  # 20 FPS
+        
+        # Start processing
+        self.root.after(50, _process_updates)
+    
+    # ========================================================================
+    # Auto-Refresh System (NEW - for JSON reload and list updates)
+    # ========================================================================
+    
+    def _start_auto_refresh(self):
+        """启动自动刷新定时器"""
+        def _auto_refresh():
+            if self.auto_refresh_enabled and self.system_ready:
+                try:
+                    # Auto-refresh commands and training lists
+                    self._refresh_commands()
+                    self._refresh_training()
+                except Exception as e:
+                    print(f"[ERROR] Auto-refresh failed: {e}")
+            
+            # Schedule next refresh
+            if self.auto_refresh_enabled:
+                self.root.after(self.auto_refresh_interval, _auto_refresh)
+        
+        # Start the timer
+        self.root.after(self.auto_refresh_interval, _auto_refresh)
+        print(f"[INFO] Auto-refresh enabled (interval: {self.auto_refresh_interval}ms)")
+    
+    def _reload_commands_json(self):
+        """手动重新加载JSON命令文件"""
+        if not self.audio_engine or not hasattr(self.audio_engine, 'cmd_hotword_mgr'):
+            messagebox.showerror("Error", "Command manager not available")
             return
         
-        # Reset state
-        self._stop_flag.clear()
+        try:
+            self._log("[INFO] Reloading commands from JSON...")
+            self.audio_engine.cmd_hotword_mgr.load_commands_from_json()
+            self._refresh_commands()
+            self._refresh_training()
+            self._log("[SUCCESS] Commands reloaded from JSON")
+            messagebox.showinfo("Success", "Commands reloaded from JSON file")
+        except Exception as e:
+            error_msg = f"Failed to reload JSON: {e}"
+            self._log(f"[ERROR] {error_msg}")
+            messagebox.showerror("Error", error_msg)
+    
+    # ========================================================================
+    # Control Population
+    # ========================================================================
+    
+    def _populate_controls(self):
+        """Populate model and voice controls"""
+        if not self.audio_engine:
+            return
+        
+        # Update voice list
+        try:
+            if self.audio_engine.tts_mgr:
+                voices = self.audio_engine.tts_mgr.get_available_voices()
+                self.available_voices = voices
+                
+                voice_names = [v.get("name", f"Voice {i}") for i, v in enumerate(voices)]
+                if not voice_names:
+                    voice_names = ["Default"]
+                
+                self.voice_combo.configure(values=voice_names)
+                if voice_names:
+                    self.voice_combo.set(voice_names[0])
+                    
+                self._log(f"[INFO] Loaded {len(voices)} TTS voices")
+        except Exception as e:
+            print(f"[ERROR] Voice populate error: {e}")
+            self._log(f"[ERROR] Failed to load voices: {e}")
+    
+    # ========================================================================
+    # Voice Recognition Control
+    # ========================================================================
+    
+    def _start_listening(self):
+        """Start voice recognition"""
+        if not self.audio_engine or self.is_listening:
+            return
+        
+        if not self.system_ready:
+            messagebox.showwarning("System Not Ready", 
+                                 "System is not fully initialized. Please wait.")
+            return
+        
+        self.stop_event.clear()
         self.is_listening = True
-        self.fail_count = 0
-        self.state = self.STATE_LISTEN_WAKE
         
         # Update UI
         self.btn_start.config(state=tk.DISABLED)
         self.btn_stop.config(state=tk.NORMAL)
-        self._update_status("Listening for wake word 'susie'...")
-        self._update_detailed_status("System is listening for the wake word 'susie'. Speak clearly into your microphone.")
+        self._update_status("Listening for 'susie'...")
+        self._update_detailed_status("System is listening for the wake word 'susie'. Speak clearly.")
         
-        # Clear output file
-        self._clear_output()
+        # Clear results
+        self.result_text.delete("1.0", tk.END)
         
-        # Log entry (Fixed escape character issue)
-        ts = datetime.now().strftime('%H:%M:%S')
-        self._append_result(f"🎤 Voice recognition started at {ts}")
-        self._append_result("💡 Say 'susie' to activate command mode")
+        # Log start
+        timestamp = datetime.now().strftime('%H:%M:%S')
+        self._log(f"[{timestamp}] Voice recognition started")
+        self._log("Say 'susie' to activate command mode")
         
-        # TTS announce start
-        if self.audio.tts_mgr:
-            self.audio.tts_mgr.speak_status("start")
-            time.sleep(0.5)
-            self.audio.tts_mgr.speak_status("listening")
+        # TTS feedback
+        if self.audio_engine.tts_mgr:
+            self.audio_engine.tts_mgr.speak_status("start")
+            time.sleep(0.3)
+            self.audio_engine.tts_mgr.speak_status("listening")
         
-        # Start recognition thread
-        self.recognition_thread = threading.Thread(target=self._recognition_loop, daemon=True)
+        # CRITICAL FIX: Use non-daemon thread for proper cleanup
+        self.recognition_thread = threading.Thread(
+            target=self._recognition_loop, 
+            daemon=False,  # Non-daemon for graceful shutdown
+            name="Recognition"
+        )
         self.recognition_thread.start()
+        print("[LISTEN] Recognition thread started (non-daemon)")
     
     def _stop_listening(self):
-        """Stop listening (Fixed cleanup logic)"""
-        print("🔄 Stopping recognition...")
+        """ENHANCED: Stop voice recognition with proper thread joining"""
+        print("[LISTEN] Stopping recognition...")
         
-        # Set stop flag
-        self._stop_flag.set()
+        # Set stop flags
+        self.stop_event.set()
         self.is_listening = False
         
-        # Reset audio processor state
-        if self.audio:
-            self.audio.reset_wake_state()
+        # Reset audio engine state
+        if self.audio_engine:
+            self.audio_engine.reset_wake_state()
         
-        # Update state
-        self.state = self.STATE_IDLE
-        
-        # Update UI
+        # Update UI immediately
         self.btn_start.config(state=tk.NORMAL)
         self.btn_stop.config(state=tk.DISABLED)
-        self._update_status("System Ready")
-        self._update_detailed_status("Recognition stopped. System is ready to start listening again.")
+        self._update_status("Ready")
+        self._update_detailed_status("Recognition stopped. System ready to start again.")
         
-        # Log entry
-        ts = datetime.now().strftime('%H:%M:%S')
-        self._append_result(f"⏹ Voice recognition stopped at {ts}")
+        # Log stop
+        timestamp = datetime.now().strftime('%H:%M:%S')
+        self._log(f"[{timestamp}] Voice recognition stopped")
         
-        # TTS announce stop
-        if self.audio and self.audio.tts_mgr:
-            self.audio.tts_mgr.speak_status("stop")
+        # TTS feedback
+        if self.audio_engine and self.audio_engine.tts_mgr:
+            self.audio_engine.tts_mgr.speak_status("stop")
         
-        # Wait for recognition thread to end
+        # CRITICAL FIX: Wait for thread to finish (with timeout)
         if self.recognition_thread and self.recognition_thread.is_alive():
-            self.recognition_thread.join(timeout=2.0)
+            print("[LISTEN] Waiting for recognition thread to stop...")
+            self.recognition_thread.join(timeout=3.0)
+            
+            if self.recognition_thread.is_alive():
+                print("[LISTEN] WARNING: Recognition thread did not stop gracefully")
+            else:
+                print("[LISTEN] ✓ Recognition thread stopped")
         
-        print("✅ Recognition stopped successfully")
+        print("[LISTEN] Recognition stopped successfully")
     
     def _recognition_loop(self):
-        """
-        Main recognition loop implementing two-stage voice control
+        """Main recognition loop"""
+        state = "wake_word"
+        fail_count = 0
+        max_failures = 5
         
-        Stage 1: Standby Mode - Listen for wake word 'susie'
-        Stage 2: Command Mode - Recognize and execute voice commands
-        
-        The system automatically returns to standby after 5 consecutive failed recognitions.
-        All recognition results are written to output.txt with timestamps.
-        TTS provides real-time feedback for all states and actions.
-        """
         try:
-            print("🔄 Starting recognition loop...")
+            print("[INFO] Recognition loop started")
             
-            while self.is_listening and not self._stop_flag.is_set():
+            while self.is_listening and not self.stop_event.is_set():
                 try:
-                    # ===== STAGE 1: STANDBY MODE - Wake Word Detection =====
-                    if self.state == self.STATE_LISTEN_WAKE:
-                        self.root.after(0, lambda: self._update_detailed_status("Listening for wake word 'susie'..."))
+                    if state == "wake_word":
+                        self._queue_ui_update(lambda: self._update_detailed_status(
+                            "Listening for wake word 'susie'..."))
                         
-                        print("🔍 Recording for wake word detection...")
-                        audio = self.audio.record_audio(duration=3) if self.audio is not None and hasattr(self.audio, 'record_audio') else None
-                        
-                        if audio is None or self._stop_flag.is_set():
+                        audio_data = self.audio_engine.record_audio(duration=3.0)
+                        if audio_data is None or self.stop_event.is_set():
                             continue
                         
-                        # Detect "susie"
-                        if self.audio is not None and hasattr(self.audio, 'detect_wake_word') and self.audio.detect_wake_word(audio, "susie"):
-                            # Activate command mode
-                            if self.audio is not None and hasattr(self.audio, 'set_wake_state') and hasattr(self.audio, 'WAKE_STATE_ACTIVE'):
-                                self.audio.set_wake_state(self.audio.WAKE_STATE_ACTIVE)
-                            self.state = self.STATE_CMD_MODE
-                            self.fail_count = 0
+                        if self.audio_engine.detect_wake_word(audio_data, "susie"):
+                            self.audio_engine.set_wake_state(self.audio_engine.WAKE_STATE_ACTIVE)
+                            state = "command"
+                            fail_count = 0
                             
-                            ts = datetime.now().strftime("%H:%M:%S")
-                            self.root.after(0, lambda: self._update_status("Command mode - Speak your command"))
-                            self.root.after(0, lambda: self._update_detailed_status("Wake word detected! Command mode activated. Speak your command clearly."))
-                            self.root.after(0, lambda: self._append_result(f"[{ts}] 🎯 Wake word detected - Command mode activated"))
+                            timestamp = datetime.now().strftime("%H:%M:%S")
+                            self._queue_ui_update(lambda: self._update_status("Command Mode"))
+                            self._queue_ui_update(lambda: self._update_detailed_status(
+                                "Wake word detected! Command mode active."))
+                            self._queue_ui_update(lambda: self._log(
+                                f"[{timestamp}] Wake word detected"))
                             
-                            # TTS announce command mode activated (already announced "please speak" in detect_wake_word)
                             time.sleep(0.5)
                         
-                        # Cooldown interval to prevent excessive processing
-                        time.sleep(1.0)
-                    
-                    # ===== STAGE 2: COMMAND MODE - Voice Command Recognition =====
-                    elif self.state == self.STATE_CMD_MODE:
-                        self.root.after(0, lambda: self._update_detailed_status(f"Command mode active. Listening for commands... (Failures: {self.fail_count}/5)"))
+                        time.sleep(0.5)
                         
-                        print("🔍 Recording for command recognition...")
-                        audio = self.audio.record_audio(duration=5) if self.audio is not None and hasattr(self.audio, 'record_audio') else None  # Slightly longer to ensure complete recording
+                    elif state == "command":
+                        self._queue_ui_update(lambda: self._update_detailed_status(
+                            f"Listening for command... (Failures: {fail_count}/{max_failures})"))
                         
-                        if audio is None or self._stop_flag.is_set():
+                        audio_data = self.audio_engine.record_audio(duration=2.5)
+                        if audio_data is None or self.stop_event.is_set():
                             continue
                         
-                        # Transcribe audio
-                        text = self.audio.transcribe(audio) if self.audio is not None and hasattr(self.audio, 'transcribe') else None
-                        
-                        if not text or not isinstance(text, str):
-                            print("⚠️ No transcription result")
-                            time.sleep(1.0)  # Add interval
-                            continue
-                        
-                        text = text.strip()
+                        text = self.audio_engine.transcribe(audio_data)
                         if not text:
-                            print("⚠️ Empty transcription")
-                            time.sleep(1.0)  # Add interval
+                            time.sleep(0.5)
                             continue
                         
-                        print(f"✅ Transcribed: '{text}'")
+                        print(f"[TRANSCRIBED] '{text}'")
                         
-                        # TTS announce processing
-                        if self.audio is not None and hasattr(self.audio, 'tts_mgr') and self.audio.tts_mgr:
-                            self.audio.tts_mgr.speak_status("processing")
+                        if self.audio_engine.tts_mgr:
+                            self.audio_engine.tts_mgr.speak_status("processing")
                         
-                        # Match command
-                        commands = self.audio.get_all_commands() if self.audio is not None and hasattr(self.audio, 'get_all_commands') else []
-                        matched_cmd = self.audio.match_command(text, commands) if self.audio is not None and hasattr(self.audio, 'match_command') else None
+                        commands = self.audio_engine.get_all_commands()
+                        matched_cmd = self.audio_engine.match_command(text, commands)
                         
-                        ts = datetime.now().strftime("%H:%M:%S")
+                        timestamp = datetime.now().strftime("%H:%M:%S")
                         
                         if matched_cmd:
-                            # ===== COMMAND MATCHED SUCCESSFULLY =====
-                            self.fail_count = 0
+                            fail_count = 0
                             
-                            # Write command to output.txt for robot execution
                             if self._write_output(matched_cmd):
-                                msg = f"[{ts}] ✅ Command: '{matched_cmd}' → Saved to output.txt"
-                                self.root.after(0, lambda cmd=matched_cmd: self._update_detailed_status(f"Command executed successfully: '{cmd}' → Written to output.txt"))
+                                msg = f"[{timestamp}] Command: '{matched_cmd}' -> output.txt"
+                                self._queue_ui_update(lambda: self._update_detailed_status(
+                                    f"Success! Command '{matched_cmd}' executed"))
                                 
-                                # TTS confirmation: speak the matched command
-                                if self.audio is not None and hasattr(self.audio, 'tts_mgr') and self.audio.tts_mgr:
-                                    self.audio.tts_mgr.speak_command(matched_cmd)
+                                if self.audio_engine.tts_mgr:
+                                    self.audio_engine.tts_mgr.speak_command(matched_cmd)
                             else:
-                                msg = f"[{ts}] ⚠️ Command: '{matched_cmd}' → File write failed"
-                                self.root.after(0, lambda cmd=matched_cmd: self._update_detailed_status(f"Command recognized but file write failed: '{cmd}'"))
-                                
-                                # TTS error announcement
-                                if self.audio is not None and hasattr(self.audio, 'tts_mgr') and self.audio.tts_mgr:
-                                    self.audio.tts_mgr.speak_status("error")
+                                msg = f"[{timestamp}] Command: '{matched_cmd}' (write failed)"
+                                if self.audio_engine.tts_mgr:
+                                    self.audio_engine.tts_mgr.speak_status("error")
                         else:
-                            # ===== COMMAND NOT MATCHED =====
-                            self.fail_count += 1
-                            msg = f"[{ts}] ❌ '{text}' → No matching command (Failures: {self.fail_count}/5)"
-                            self.root.after(0, lambda t=text, fc=self.fail_count: self._update_detailed_status(f"No matching command found for: '{t}' (Failures: {fc}/5)"))
+                            fail_count += 1
+                            msg = f"[{timestamp}] '{text}' -> No match ({fail_count}/{max_failures})"
+                            self._queue_ui_update(lambda: self._update_detailed_status(
+                                f"No matching command: '{text}'"))
                             
-                            # TTS feedback: command not recognized
-                            if self.audio is not None and hasattr(self.audio, 'tts_mgr') and self.audio.tts_mgr:
-                                self.audio.tts_mgr.speak_status("not match")
+                            if self.audio_engine.tts_mgr:
+                                self.audio_engine.tts_mgr.speak_status("not match")
                         
-                        self.root.after(0, lambda m=msg: self._append_result(m))
+                        self._queue_ui_update(lambda: self._log(msg))
                         
-                        # ===== AUTO RETURN TO STANDBY AFTER 5 FAILURES =====
-                        if self.fail_count >= 5:
-                            print("⚠️ Maximum failures reached (5/5), returning to standby mode")
+                        if fail_count >= max_failures:
+                            print("[INFO] Max failures reached, returning to wake word mode")
+                            state = "wake_word"
+                            fail_count = 0
+                            self.audio_engine.reset_wake_state()
                             
-                            # Reset to standby mode
-                            self.state = self.STATE_LISTEN_WAKE
-                            self.fail_count = 0
-                            
-                            # Reset audio processor wake state
-                            if self.audio is not None and hasattr(self.audio, 'reset_wake_state'):
-                                self.audio.reset_wake_state()
-                            
-                            # Update UI with clear feedback
-                            self.root.after(0, lambda: self._update_status("Listening for wake word 'susie'..."))
-                            self.root.after(0, lambda: self._update_detailed_status("5 consecutive failures detected. System returned to standby mode. Say 'susie' to reactivate."))
-                            self.root.after(0, lambda: self._append_result("⚠️ [Auto-Reset] 5 consecutive failures → Returned to standby mode"))
-                            
-                            time.sleep(1.0)
+                            self._queue_ui_update(lambda: self._update_status("Listening..."))
+                            self._queue_ui_update(lambda: self._update_detailed_status(
+                                "Too many failures. Returned to standby."))
+                            self._queue_ui_update(lambda: self._log(
+                                "Auto-reset: Returned to standby"))
                         
-                        # Add interval to prevent too fast recognition
-                        time.sleep(2.0)
-                
+                        time.sleep(1.0)
+                    
                 except Exception as e:
-                    print(f"❌ Recognition loop error: {e}")
-                    self.root.after(0, lambda: self._append_result(f"❌ Recognition error: {e}"))
-                    time.sleep(2.0)  # Add longer interval after error
+                    print(f"[ERROR] Recognition loop error: {e}")
+                    self._queue_ui_update(lambda: self._log(f"Recognition error: {e}"))
+                    time.sleep(1.0)
                     continue
         
         except Exception as e:
-            print(f"❌ Critical recognition loop error: {e}")
-            self.root.after(0, lambda: self._append_result(f"❌ Critical error: {e}"))
+            print(f"[CRITICAL] Recognition error: {e}")
+            traceback.print_exc()
+            self._queue_ui_update(lambda: self._log(f"Critical error: {e}"))
+        
         finally:
-            print("🔄 Recognition loop ended")
+            print("[INFO] Recognition loop ended")
             if self.is_listening:
-                self.root.after(0, self._stop_listening)
+                self._queue_ui_update(self._stop_listening)
+    
+    def _write_output(self, text: str) -> bool:
+        """Write command to output file"""
+        try:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            content = f"[{timestamp}] Command: {text}\n"
+            
+            with open("output.txt", "w", encoding="utf-8") as f:
+                f.write(content)
+            
+            print(f"[OUTPUT] Written: {text}")
+            return True
+        
+        except Exception as e:
+            print(f"[ERROR] Write output error: {e}")
+            return False
+    
+    # ========================================================================
+    # Event Handlers
+    # ========================================================================
+    
+    def _on_model_change(self, event=None):
+        """Handle model selection change"""
+        if not self.audio_engine:
+            return
+        
+        new_model = self.model_combo.get()
+        if not new_model or new_model == self.audio_engine.get_current_model():
+            return
+        
+        self._update_detailed_status(f"Switching to {new_model} model...")
+        self._log(f"[INFO] Switching STT model to: {new_model}")
+        
+        def _switch():
+            success = self.audio_engine.switch_model(new_model)
+            if success:
+                self._queue_ui_update(lambda: self._log(f"[SUCCESS] Model switched to: {new_model}"))
+                if self.audio_engine.tts_mgr:
+                    self.audio_engine.tts_mgr.speak_text(f"Model switched to {new_model}", priority=True)
+            else:
+                self._queue_ui_update(lambda: self._log(f"[ERROR] Failed to switch to: {new_model}"))
+        
+        threading.Thread(target=_switch, daemon=True).start()
+    
+    def _on_voice_change(self, event=None):
+        """Handle voice selection change"""
+        if not self.audio_engine or not self.audio_engine.tts_mgr:
+            return
+        
+        choice = self.voice_combo.get()
+        
+        voice_index = 0
+        for i, voice in enumerate(self.available_voices):
+            if voice.get("name") == choice:
+                voice_index = i
+                break
+        
+        if self.audio_engine.tts_mgr.set_voice_by_index(voice_index):
+            self._log(f"[INFO] TTS voice changed to: {choice}")
+        else:
+            self._log(f"[ERROR] Failed to change voice to: {choice}")
+    
+    def _test_voice(self):
+        """Test current TTS voice"""
+        if self.audio_engine and self.audio_engine.tts_mgr:
+            self.audio_engine.tts_mgr.speak_text("This is a voice test. How does this sound?", priority=True)
+            self._log("[INFO] Testing TTS voice...")
+    
+    # ========================================================================
+    # Command Management
+    # ========================================================================
     
     def _add_command(self):
-        """Add command"""
-        if not self.audio:
+        """Add new command"""
+        command = self.cmd_entry.get().strip()
+        if not command:
             return
-            
-        cmd = self.cmd_entry.get().strip()
-        if cmd and self.audio.add_command(cmd):
+        
+        if self.audio_engine and self.audio_engine.add_command(command):
             self.cmd_entry.delete(0, tk.END)
             self._refresh_commands()
             self._refresh_training()
-            self._refresh_system_status()
-            messagebox.showinfo("Success", f"Command '{cmd}' added successfully")
+            self._log(f"[SUCCESS] Command added: '{command}'")
+            messagebox.showinfo("Success", f"Command '{command}' added")
+        else:
+            messagebox.showerror("Error", f"Failed to add command '{command}'")
     
     def _delete_command(self):
-        """Delete command"""
-        if not self.audio:
+        """Delete selected command"""
+        selection = self.cmd_tree.selection()
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select a command to delete.")
             return
-            
-        selection = self.cmd_listbox.curselection()
-        if selection:
-            cmd = self.cmd_listbox.get(selection[0])
-            if messagebox.askyesno("Confirm", f"Delete command '{cmd}'?"):
-                if self.audio.remove_command(cmd):
-                    self._refresh_commands()
-                    self._refresh_training()
-                    self._refresh_system_status()
+        
+        item = self.cmd_tree.item(selection[0])
+        command = item["values"][0]
+        
+        if messagebox.askyesno("Confirm", f"Delete command '{command}'?"):
+            if self.audio_engine and self.audio_engine.remove_command(command):
+                self._refresh_commands()
+                self._refresh_training()
+                self._log(f"[INFO] Command deleted: '{command}'")
     
     def _refresh_commands(self):
-        """Refresh command list"""
-        if not self.audio:
+        """Refresh commands list"""
+        if not self.audio_engine:
             return
+        
+        try:
+            # Clear tree
+            for item in self.cmd_tree.get_children():
+                self.cmd_tree.delete(item)
             
-        self.cmd_listbox.delete(0, tk.END)
-        commands = self.audio.get_all_commands()
-        if not commands or not isinstance(commands, (list, tuple)):
-            commands = []
-        for cmd in commands:
-            self.cmd_listbox.insert(tk.END, cmd)
+            # Get commands
+            commands = self.audio_engine.get_all_commands()
+            
+            # Populate tree
+            for cmd in commands:
+                cmd_info = self.audio_engine.cmd_hotword_mgr.get_command_info(cmd)
+                weight = cmd_info.get("weight", 1.0)
+                usage = cmd_info.get("usage_count", 0)
+                
+                self.cmd_tree.insert("", tk.END, values=(cmd, f"{weight:.2f}", usage))
+        except Exception as e:
+            print(f"[ERROR] Refresh commands failed: {e}")
     
     def _train_command(self):
-        """Train command"""
-        if not self.audio:
-            return
-            
+        """Train selected command"""
         selection = self.train_tree.selection()
-        if selection:
-            item = self.train_tree.item(selection[0])
-            cmd = item["values"][0]
-            weight = self.audio.train_command(cmd)
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select a command to train.")
+            return
+        
+        item = self.train_tree.item(selection[0])
+        command = item["values"][0]
+        
+        if self.audio_engine:
+            new_weight = self.audio_engine.train_command(command)
             self._refresh_training()
-            self._refresh_commands()
-            self._refresh_system_status()
-            messagebox.showinfo("Training", f"Command '{cmd}' trained. New weight: {weight:.2f}")
+            self._log(f"[INFO] Command trained: '{command}' -> weight: {new_weight:.2f}")
+            messagebox.showinfo("Training", f"Command '{command}' trained. Weight: {new_weight:.2f}")
     
     def _refresh_training(self):
         """Refresh training data"""
-        if not self.audio:
+        if not self.audio_engine:
             return
-            
-        for item in self.train_tree.get_children():
-            self.train_tree.delete(item)
         
-        commands = self.audio.get_all_commands()
-        if not commands or not isinstance(commands, (list, tuple)):
-            commands = []
-        for cmd in commands:
-            count = self.audio.get_training_count(cmd)
-            cmd_info = self.audio.cmd_hotword_mgr.get_command_info(cmd)
-            weight = cmd_info.get("weight", 1.0)
-            self.train_tree.insert("", tk.END, values=(cmd, count, f"{weight:.2f}"))
+        try:
+            # Clear tree
+            for item in self.train_tree.get_children():
+                self.train_tree.delete(item)
+            
+            # Get commands
+            commands = self.audio_engine.get_all_commands()
+            
+            # Populate tree
+            for cmd in commands:
+                usage_count = self.audio_engine.get_training_count(cmd)
+                cmd_info = self.audio_engine.cmd_hotword_mgr.get_command_info(cmd)
+                weight = cmd_info.get("weight", 1.0)
+                
+                self.train_tree.insert("", tk.END, values=(cmd, usage_count, f"{weight:.2f}"))
+        except Exception as e:
+            print(f"[ERROR] Refresh training failed: {e}")
     
     def _refresh_system_status(self):
-        """Refresh system status"""
-        if not self.audio:
-            status_text = "Audio processor not initialized.\n\nPlease check your model and audio device."
+        """Refresh system status display"""
+        if not self.audio_engine:
+            status_text = "Audio engine not initialized.\n\nPlease wait for system initialization to complete."
         else:
             try:
-                status = self.audio.get_system_status()
-                status_text = "=== VOICE CONTROL SYSTEM STATUS ===\n\n"
-                status_text += f"System State: {self.state}\n"
-                status_text += f"Wake State: {status['wake_state']}\n"
-                status_text += f"Processing: {status['processing']}\n"
-                status_text += f"Is Listening: {self.is_listening}\n"
-                status_text += f"Model: {status['model_size']} ({status['backend']})\n"
-                status_text += f"Model Loaded: {status['model_loaded']}\n"
-                status_text += f"Model Path: {status.get('model_path', 'N/A')}\n"
-                status_text += f"Model Error: {status.get('model_error', 'None')}\n"
-                status_text += f"\nFeatures:\n"
-                features = status.get('features', {})
-                if not features or not isinstance(features, dict):
-                    features = {}
-                for feature, enabled in features.items():
-                    status_text += f"  {feature}: {'✅ Enabled' if enabled else '❌ Disabled'}\n"
-                status_text += f"\nCommands: {status['commands']['total']} total\n"
-                most_used = status.get('commands', {}).get('most_used', [])
-                if not most_used or not isinstance(most_used, (list, tuple)):
-                    most_used = []
+                status = self.audio_engine.get_system_status()
+                
+                status_text = "=== ENHANCED VOICE CONTROL SYSTEM STATUS ===\n\n"
+                status_text += f"System Status: {'Ready' if self.system_ready else 'Initializing'}\n"
+                status_text += f"Wake State: {status.get('wake_state', 'UNKNOWN')}\n"
+                status_text += f"Processing: {status.get('processing', False)}\n"
+                status_text += f"Recording: {self.is_listening}\n"
+                status_text += f"Backend: {status.get('backend', 'unknown')}\n"
+                status_text += f"Current Model: {status.get('model_size', 'unknown')}\n"
+                status_text += f"Model Loaded: {status.get('model_loaded', False)}\n"
+                
+                # Commands
+                commands = status.get('commands', {})
+                status_text += f"\nCommands: {commands.get('total', 0)} total\n"
+                status_text += f"Total Usage: {commands.get('total_usage', 0)}\n"
+                
+                most_used = commands.get('most_used', [])
                 if most_used:
-                    status_text += "Most Used Commands:\n"
-                    for cmd, count in most_used:
+                    status_text += "\nMost Used Commands:\n"
+                    for cmd, count in most_used[:5]:
                         status_text += f"  '{cmd}': {count} times\n"
-                status_text += f"\nTTS Engine: {status['tts']['engine_type']}\n"
-                status_text += f"TTS Running: {status['tts']['running']}\n"
-                status_text += f"TTS Speaking: {status['tts']['speaking']}\n"
-                status_text += f"TTS Error: {status['tts'].get('error', 'None')}\n"
-                status_text += f"\nLocal Models:\n"
-                status_text += f"Offline Mode: {status['local_models']['offline_mode']}\n"
-                status_text += f"Available Models: {len(status['local_models']['available'])}\n"
-                status_text += f"Total Size: {status['local_models']['total_size']}\n"
-                status_text += f"Models: {', '.join(status['local_models']['available'])}\n"
-                status_text += f"Model Load Error: {status['local_models'].get('error', 'None')}\n"
-                status_text += f"\nLast Success: {status.get('last_success', 'N/A')}\n"
-                status_text += f"Last Error: {status.get('last_error', 'None')}\n"
+                
+                # TTS
+                tts = status.get('tts', {})
+                status_text += f"\nTTS Engine: {tts.get('engine_type', 'unknown')}\n"
+                status_text += f"TTS Running: {tts.get('running', False)}\n"
+                status_text += f"Voice Count: {len(self.available_voices)}\n"
+                
+                # Features
+                features = status.get('features', {})
+                status_text += "\nFeatures:\n"
+                for feature, enabled in features.items():
+                    status_text += f"  {feature}: {'Enabled' if enabled else 'Disabled'}\n"
+                
             except Exception as e:
-                status_text = f"Error getting system status: {e}"
-
-        self.system_status_text.config(state=tk.NORMAL)
-        self.system_status_text.delete("1.0", tk.END)
-        self.system_status_text.insert("1.0", status_text)
-        self.system_status_text.config(state=tk.DISABLED)
+                status_text = f"Error getting system status: {e}\n"
+                status_text += traceback.format_exc()
+        
+        # Update display
+        self.system_text.config(state=tk.NORMAL)
+        self.system_text.delete("1.0", tk.END)
+        self.system_text.insert("1.0", status_text)
+        self.system_text.config(state=tk.DISABLED)
     
-    def _save_system_log(self):
-        """Save system log"""
+    def _show_health_report(self):
+        """显示系统健康报告"""
+        report = self.health_monitor.get_status_report()
+        
+        # Create popup window
+        popup = tk.Toplevel(self.root)
+        popup.title("System Health Report")
+        popup.geometry("600x400")
+        popup.configure(bg=COLORS["bg"])
+        
+        # Header
+        header = tk.Label(popup, text="System Health Report",
+                         font=FONTS["title"], bg=COLORS["bg"])
+        header.pack(pady=10)
+        
+        # Report text
+        report_text = tk.Text(popup, font=FONTS["mono"], wrap=tk.WORD)
+        report_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        report_text.insert("1.0", report)
+        report_text.config(state=tk.DISABLED)
+        
+        # Close button
+        tk.Button(popup, text="Close", command=popup.destroy,
+                 bg=COLORS["primary"], fg="white",
+                 relief=tk.FLAT, bd=0).pack(pady=10)
+    
+    def _save_log(self):
+        """Save activity log"""
         try:
             log_content = self.result_text.get("1.0", tk.END)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -669,65 +1100,127 @@ class VoiceControlApp:
             with open(filename, 'w', encoding='utf-8') as f:
                 f.write(log_content)
             
-            messagebox.showinfo("Success", f"System log saved as {filename}")
+            messagebox.showinfo("Success", f"Log saved as {filename}")
+            self._log(f"[INFO] Log saved: {filename}")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save log: {e}")
     
-    def _update_status(self, status):
-        """Update status display"""
-        self.status_var.set(status)
+    # ========================================================================
+    # UI Helpers
+    # ========================================================================
     
-    def _update_detailed_status(self, status):
+    def _update_status(self, status: str):
+        """Update main status display"""
+        self.status_var.set(status)
+        self.current_state = status
+    
+    def _update_detailed_status(self, status: str):
         """Update detailed status display"""
         self.detailed_status_var.set(status)
     
-    def _append_result(self, text):
-        """Append result text (Fixed escape character issue)"""
-        self.result_text.insert(tk.END, text + "\n")
+    def _log(self, message: str):
+        """Add message to activity log"""
+        self.result_text.insert(tk.END, message + "\n")
         self.result_text.see(tk.END)
     
-    def _clear_output(self):
-        """Clear output file"""
-        try:
-            with open("output.txt", "w", encoding="utf-8") as f:
-                f.write("")
-        except Exception as e:
-            print(f"Clear output error: {e}")
-    
-    def _write_output(self, text):
-        """Write command to output.txt with timestamp"""
-        try:
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            output_content = f"[{timestamp}] Command: {text}\n"
-            
-            with open("output.txt", "w", encoding="utf-8") as f:
-                f.write(output_content)
-            
-            print(f"✅ Command written to output.txt: {text}")
-            return True
-        except Exception as e:
-            print(f"❌ Write output error: {e}")
-            return False
-    
     def on_closing(self):
-        """Cleanup when closing application"""
-        print("🔄 Closing application...")
+        """
+        ENHANCED: Handle application closing with proper cleanup.
+        CRITICAL FIX for GUI freezing issues.
+        """
+        print("[SHUTDOWN] Application closing initiated...")
         
-        # Stop listening
+        # Set shutdown flags immediately
+        self.stop_event.set()
+        self.auto_refresh_enabled = False
+        
+        # Update UI to show shutdown status
+        try:
+            self._update_status("Shutting down...")
+            self._update_detailed_status("Cleaning up resources, please wait...")
+        except:
+            pass
+        
+        # CRITICAL: Stop voice recognition first
         if self.is_listening:
-            self._stop_listening()
+            print("[SHUTDOWN] Stopping voice recognition...")
+            try:
+                self.is_listening = False
+                if self.audio_engine:
+                    self.audio_engine.reset_wake_state()
+            except Exception as e:
+                print(f"[SHUTDOWN] Recognition stop error: {e}")
         
-        # Close audio processor
-        if self.audio:
-            self.audio.shutdown()
+        # CRITICAL: Wait for recognition thread to finish (with timeout)
+        if hasattr(self, 'recognition_thread') and self.recognition_thread:
+            if self.recognition_thread.is_alive():
+                print("[SHUTDOWN] Waiting for recognition thread...")
+                self.recognition_thread.join(timeout=3.0)
+                if self.recognition_thread.is_alive():
+                    print("[SHUTDOWN] WARNING: Recognition thread did not stop")
+                else:
+                    print("[SHUTDOWN] ✓ Recognition thread stopped")
         
-        self.root.destroy()
+        # CRITICAL: Shutdown audio engine (this shutdowns TTS, CommandMgr, etc.)
+        if hasattr(self, 'audio_engine') and self.audio_engine:
+            print("[SHUTDOWN] Shutting down audio engine...")
+            try:
+                self.audio_engine.shutdown()
+                print("[SHUTDOWN] ✓ Audio engine shut down")
+            except Exception as e:
+                print(f"[SHUTDOWN] Audio engine shutdown error: {e}")
+        
+        # CRITICAL: Wait for model init thread if still running
+        if hasattr(self, 'audio_engine') and self.audio_engine:
+            if hasattr(self.audio_engine, '_model_init_thread'):
+                thread = self.audio_engine._model_init_thread
+                if thread and thread.is_alive():
+                    print("[SHUTDOWN] Waiting for model init thread...")
+                    thread.join(timeout=2.0)
+        
+        # Give a moment for all cleanup to complete
+        time.sleep(0.5)
+        
+        # CRITICAL: Destroy window and quit
+        print("[SHUTDOWN] Closing window...")
+        try:
+            self.root.quit()
+            self.root.destroy()
+        except Exception as e:
+            print(f"[SHUTDOWN] Window close error: {e}")
+        
+        print("[SHUTDOWN] Application closed successfully")
+
+
+# ============================================================================
+# Main Entry Point
+# ============================================================================
 
 def main():
-    root = tk.Tk()
-    app = VoiceControlApp(root)
-    root.protocol("WM_DELETE_WINDOW", app.on_closing)
-    root.mainloop()
+    """Main application entry point"""
+    print("=" * 70)
+    print("ENHANCED VOICE CONTROL SYSTEM v2.0")
+    print("=" * 70)
+    print("[INFO] Starting application...")
+    
+    try:
+        root = tk.Tk()
+        app = VoiceControlApp(root)
+        
+        # Set up window close handler
+        root.protocol("WM_DELETE_WINDOW", app.on_closing)
+        
+        # Start the application
+        print("[INFO] Entering main loop...")
+        root.mainloop()
+        
+    except Exception as e:
+        print(f"[CRITICAL] Application error: {e}")
+        traceback.print_exc()
+    
+    print("[INFO] Application closed")
+    print("=" * 70)
+
 
 if __name__ == "__main__":
     main()

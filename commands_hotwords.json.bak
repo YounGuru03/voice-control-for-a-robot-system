@@ -2,12 +2,12 @@
   "commands": {
     "open main": {
       "text": "open main",
-      "weight": 2.5,
-      "usage_count": 10,
+      "weight": 2.4,
+      "usage_count": 9,
       "success_count": 5,
       "training_count": 0,
       "created_at": "2025-10-30T20:58:21.885319",
-      "last_used": "2025-10-31T15:48:30.357221",
+      "last_used": "2025-10-31T15:34:47.622477",
       "created": "2025-10-31T10:09:45.303678",
       "success_rate": 1.0,
       "alternatives": [],
