@@ -1,8 +1,9 @@
 # ============================================================================
-# model_manager.py - Optimized Lightweight Model Manager
+# model_manager.py
 # ============================================================================
 
 import os
+import sys
 import threading
 import time
 from pathlib import Path
@@ -29,8 +30,13 @@ class ModelManager:
     """
     
     def __init__(self, models_dir: str = "local_models"):
-        self.models_dir = Path(models_dir)
-        self.models_dir.mkdir(exist_ok=True)
+        # Resolve models directory to be persistent and next to the executable when frozen
+        if getattr(sys, 'frozen', False):
+            base_dir = Path(sys.executable).parent
+        else:
+            base_dir = Path.cwd()
+        self.models_dir = (base_dir / models_dir).resolve()
+        self.models_dir.mkdir(parents=True, exist_ok=True)
         
         # Thread safety
         self._lock = threading.RLock()

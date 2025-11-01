@@ -20,17 +20,17 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 import traceback
 
-# TTS Status Messages (Clean, no emojis)
+# TTS Status Messages (Clean, no emojis) - Limited to 3 words max
 TTS_MESSAGES = {
     "ready": "System ready",
-    "start": "Voice recognition started",
-    "listening": "Listening for wake word",
-    "please speak": "Please speak your command",
-    "processing": "Processing command",
-    "not match": "Command not recognized",
-    "stop": "Voice recognition stopped",
-    "stand by": "System on standby",
-    "error": "System error occurred"
+    "start": "Recognition started",
+    "listening": "Listening now",
+    "please speak": "Please speak",
+    "processing": "Processing now",
+    "not match": "Not recognized",
+    "stop": "Recognition stopped",
+    "stand by": "System standby",
+    "error": "System error"
 }
 
 class TTSEngine:
@@ -542,14 +542,25 @@ class TTSEngine:
         
         return False
     
+    def _limit_to_five_words(self, text: str) -> str:
+        """Limit text to maximum 5 English words for interactive responses"""
+        words = text.split()
+        if len(words) > 5:
+            return ' '.join(words[:5])
+        return text
+    
     def speak_status(self, status: str):
-        """Speak status message with priority"""
+        """Speak status message with priority (limited to 5 words)"""
         message = TTS_MESSAGES.get(status, status)
+        # Ensure status messages are limited to 5 words
+        message = self._limit_to_five_words(message)
         self.speak_text(message, priority=True)
     
     def speak_command(self, command: str):
-        """Speak command confirmation"""
-        self.speak_text(f"Command: {command}", priority=False)
+        """Speak command confirmation (limited to 5 words)"""
+        # Limit command confirmation to 5 words
+        limited_command = self._limit_to_five_words(command)
+        self.speak_text(limited_command, priority=False)
     
     def is_speaking(self) -> bool:
         """Check if currently speaking"""

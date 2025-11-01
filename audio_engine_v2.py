@@ -1,5 +1,5 @@
 # ============================================================================
-# audio_engine_v2.py - Enhanced High-Performance Audio Processing Engine
+# audio_engine_v2.py
 # ============================================================================
 """
 Enhanced audio processing engine with:
@@ -21,9 +21,24 @@ import numpy as np
 import pyaudio
 from typing import Optional, List, Dict, Any
 import traceback
+from pathlib import Path
 
 # Import optimized modules (will use v2 versions when available)
 from command_manager import CommandManager
+
+# Lightweight debug logger for packaged builds
+_STT_DEBUG_ENABLED = bool(getattr(sys, 'frozen', False) or os.environ.get('DEBUG_STT') == '1')
+def _stt_log(message: str):
+    if not _STT_DEBUG_ENABLED:
+        return
+    try:
+        # Log next to the executable when frozen; otherwise current dir
+        base_dir = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path.cwd()
+        log_path = base_dir / 'stt_debug.log'
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
+    except Exception:
+        pass
 
 # Try to import enhanced TTS engine first
 try:
@@ -152,6 +167,7 @@ class AudioEngine:
         # Initialize model asynchronously
         self._init_model_async()
         
+        _stt_log("AudioEngine initialized")
         print("[AudioEngine] Initialization complete")
     
     def _init_model_async(self):
@@ -173,8 +189,7 @@ class AudioEngine:
                 
                 if self._model_ready:
                     print(f"[AudioEngine] ✓ Model {self.model_size} loaded successfully")
-                    if self.tts_mgr:
-                        self.tts_mgr.speak_status("ready")
+                    # Removed duplicate "System Ready" announcement - will be called once from main_voice_app.py
                 else:
                     print(f"[AudioEngine] ✗ Failed to load model {self.model_size}")
                     self._last_error = f"Model {self.model_size} load failed"
@@ -290,6 +305,7 @@ class AudioEngine:
                     continue
             
             if not frames:
+                _stt_log("No audio frames captured")
                 return None
             
             # Convert to numpy array with proper dtype
@@ -298,8 +314,10 @@ class AudioEngine:
             
             # Basic quality check
             rms = np.sqrt(np.mean(audio_data**2))
+            _stt_log(f"Recorded {len(frames)} frames; RMS={rms:.6f}")
             if rms < 0.001:
                 print("[AudioEngine] Audio too quiet")
+                _stt_log("Audio too quiet below threshold")
                 return None
             
             return audio_data
@@ -359,11 +377,13 @@ class AudioEngine:
                 
                 if detected:
                     print(f"[AudioEngine] Wake word '{wake_word}' detected")
+                    _stt_log(f"Wake word detected in text='{text}'")
                     # Quick TTS feedback
                     if self.tts_mgr:
                         self.tts_mgr.speak_status("please speak")
                     return True
             
+            _stt_log("Wake word not detected")
             return False
         
         except Exception as e:
@@ -402,6 +422,7 @@ class AudioEngine:
                 # Apply deduplication to prevent repetitive text
                 text = self._deduplicate_text(text)
                 print(f"[AudioEngine] Transcription: '{text}'")
+                _stt_log(f"Transcription result: '{text}'")
                 
                 # Track success
                 self._last_success_time = time.time()
@@ -415,6 +436,7 @@ class AudioEngine:
             traceback.print_exc()
             self._last_error = str(e)
             self._error_count += 1
+            _stt_log(f"Transcription exception: {e}")
             return None
         
         finally:
@@ -434,12 +456,16 @@ class AudioEngine:
             if BACKEND == "faster-whisper":
                 # Optimized parameters for performance
                 beam_size = 1 if fast_mode else 2  # Reduced for speed
-                
+                # In packaged builds, disable VAD filter to avoid missing optional deps
+                use_vad = False if getattr(sys, 'frozen', False) else True
+                if not use_vad:
+                    _stt_log("Disabled VAD filter in packaged build")
+
                 segments, info = self.model.transcribe(
                     audio_data,
                     language=self.language,
                     beam_size=beam_size,
-                    vad_filter=True,
+                    vad_filter=use_vad,
                     initial_prompt=initial_prompt,
                     temperature=0.0,  # Deterministic
                     compression_ratio_threshold=2.4,
@@ -474,6 +500,7 @@ class AudioEngine:
                     word_count += len(seg_text.split())
                 
                 text = " ".join(segments_list)
+                _stt_log(f"Segments collected: {len(segments_list)}; words={word_count}; text='{text}'")
                 
             elif BACKEND == "openai-whisper":
                 # OpenAI Whisper parameters
@@ -488,10 +515,14 @@ class AudioEngine:
             else:
                 return None
             
-            return text.strip() if text else None
+            result_text = text.strip() if text else None
+            if not result_text:
+                _stt_log("Transcribe returned empty text")
+            return result_text
         
         except Exception as e:
             print(f"[AudioEngine] Transcription backend error: {e}")
+            _stt_log(f"Transcription backend exception: {e}")
             return None
     
     def match_command(self, text: str, commands: List[str]) -> Optional[str]:

@@ -1,14 +1,16 @@
 # ============================================================================
-# command_manager.py - Optimized Command Management System
+# command_manager.py
 # ============================================================================
 
 import json
 import os
+import shutil
 import threading
 import time
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from difflib import SequenceMatcher
+import sys
 
 class CommandManager:
     """
@@ -22,7 +24,26 @@ class CommandManager:
     """
     
     def __init__(self, data_file: str = "commands_hotwords.json"):
-        self.data_file = os.path.abspath(data_file)
+        # Prefer external, user-editable JSON next to the executable
+        if getattr(sys, 'frozen', False):
+            base_dir = os.path.dirname(sys.executable)
+            bundled_dir = getattr(sys, '_MEIPASS', None)
+        else:
+            base_dir = os.getcwd()
+            bundled_dir = None
+        external_path = os.path.abspath(os.path.join(base_dir, data_file))
+
+        # If missing externally but available in bundle, copy it out once
+        if not os.path.exists(external_path) and bundled_dir:
+            try:
+                src = os.path.join(bundled_dir, data_file)
+                if os.path.exists(src):
+                    os.makedirs(os.path.dirname(external_path), exist_ok=True)
+                    shutil.copy2(src, external_path)
+            except Exception as e:
+                print(f"[CommandMgr] Warning: failed to copy default JSON: {e}")
+
+        self.data_file = external_path
         self._lock = threading.Lock()
         
         # Load data

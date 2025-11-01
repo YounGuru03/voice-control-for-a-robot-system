@@ -4,6 +4,8 @@
 
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox, filedialog
+import tkinter.font as tkfont
+import os
 import threading
 import time
 import traceback
@@ -39,10 +41,10 @@ COLORS = {
 }
 
 FONTS = {
-    "title": ("Segoe UI", 14, "bold"),
-    "body": ("Segoe UI", 10),
-    "small": ("Segoe UI", 9),
-    "mono": ("Consolas", 9)
+    "title": ("Segoe UI", 16, "bold"),  # Increased by 2pt for importance
+    "body": ("Segoe UI", 11),  # Increased by 1pt
+    "small": ("Segoe UI", 10),  # Increased by 1pt
+    "mono": ("Consolas", 10)  # Increased by 1pt
 }
 
 # ============================================================================
@@ -51,8 +53,8 @@ FONTS = {
 
 class SystemHealthMonitor:
     """
-    独立的系统健康监视器
-    用于快速定位问题和隔离错误
+    Independent system health monitor
+    Used to quickly locate issues and isolate errors
     """
     def __init__(self):
         self.components = {
@@ -113,7 +115,7 @@ class VoiceControlApp:
     
     def __init__(self, root):
         self.root = root
-        self.root.title("Voice Control System v2.0 - Enhanced")
+        self.root.title("Voice Control System")
         self.root.geometry("1000x750")
         self.root.configure(bg=COLORS["bg"])
         self.root.minsize(900, 650)
@@ -132,6 +134,16 @@ class VoiceControlApp:
         self.selected_model = tk.StringVar(value="base")
         self.selected_voice = tk.StringVar(value="Default")
         self.available_voices = []
+        
+        # Logo state for dynamic height-based scaling
+        self._logo_original = None  # PIL.Image.Image if available
+        self.logo_photo = None      # Tk-compatible PhotoImage
+        self.logo_label = None
+        self._last_logo_height = 0
+
+        # External config tracking (for JSON hot reload)
+        self._commands_json_path = None
+        self._commands_json_mtime = None
         
         # Thread management 
         self.recognition_thread = None
@@ -166,21 +178,42 @@ class VoiceControlApp:
     def _build_ui(self):
         """Build the user interface"""
         
-        # Header
-        header = tk.Frame(self.root, bg=COLORS["primary"], height=60)
+        # Header with logo (left), centered title (middle), status (right)
+        header = tk.Frame(self.root, bg=COLORS["primary"])  # dynamic height based on content
         header.pack(fill=tk.X)
-        header.pack_propagate(False)
-        
-        title_label = tk.Label(header, text="Voice Control System - Enhanced",
-                              font=("Segoe UI", 16, "bold"),
-                              bg=COLORS["primary"], fg="white")
-        title_label.pack(side=tk.LEFT, padx=20, pady=15)
-        
-        # Status indicator
+
+        # Use a 3-column grid to keep the title centered regardless of logo/status width
+        header.grid_columnconfigure(0, weight=1)  # left spacer grows
+        header.grid_columnconfigure(1, weight=0)  # center content
+        header.grid_columnconfigure(2, weight=1)  # right spacer grows
+
+        left_area = tk.Frame(header, bg=COLORS["primary"])
+        center_area = tk.Frame(header, bg=COLORS["primary"])
+        right_area = tk.Frame(header, bg=COLORS["primary"])
+
+        left_area.grid(row=0, column=0, sticky="w", padx=10, pady=6)
+        center_area.grid(row=0, column=1, pady=6)
+        right_area.grid(row=0, column=2, sticky="e", padx=10, pady=6)
+
+        # Compute target logo height based on title font height (1.3x)
+        title_font = tkfont.Font(family="Segoe UI", size=18, weight="bold")
+        title_linespace = max(1, int(title_font.metrics("linespace")))
+        target_logo_h = max(12, int(title_linespace * 1.3))
+
+        # Initialize NTU logo with proportional scaling to target height
+        self._init_logo_static(left_area, target_logo_h)
+
+        # Title label (centered)
+        title_label = tk.Label(center_area, text="Voice Control System",
+                               font=title_font,
+                               bg=COLORS["primary"], fg="white")
+        title_label.pack()
+
+        # Status indicator (right side)
         self.status_var = tk.StringVar(value="Initializing...")
-        status_label = tk.Label(header, textvariable=self.status_var,
-                               font=FONTS["body"], bg=COLORS["primary"], fg="white")
-        status_label.pack(side=tk.RIGHT, padx=20, pady=15)
+        status_label = tk.Label(right_area, textvariable=self.status_var,
+                                font=FONTS["body"], bg=COLORS["primary"], fg="white")
+        status_label.pack(anchor="e")
         
         # Main content with tabs
         notebook = ttk.Notebook(self.root)
@@ -204,13 +237,148 @@ class VoiceControlApp:
         self._build_commands_tab()
         self._build_training_tab()
         self._build_system_tab()
+
+    def _init_logo(self, header: tk.Frame, left_area: tk.Frame):
+        """Load the NTU logo and bind height-based scaling to the header size."""
+        # Resolve logo file (case variations)
+        logo_file = None
+        for candidate in ["NTU.PNG", "NTU.png"]:
+            if os.path.exists(candidate):
+                logo_file = candidate
+                break
+
+        if not logo_file:
+            print("[WARNING] NTU logo not found (NTU.PNG/NTU.png)")
+            return
+
+        # Try to load with PIL for high-quality scaling; fall back to Tk PhotoImage
+        pil_image = None
+        try:
+            from PIL import Image  # type: ignore
+            pil_image = Image.open(logo_file)
+            self._logo_original = pil_image
+        except Exception:
+            self._logo_original = None
+            try:
+                self.logo_photo = tk.PhotoImage(file=logo_file)
+            except Exception as e:
+                print(f"[WARNING] Failed to load logo '{logo_file}': {e}")
+                return
+
+        # Create label now; actual sizing will occur on first <Configure>
+        if self.logo_label is None:
+            self.logo_label = tk.Label(left_area, bg=COLORS["primary"])
+            self.logo_label.pack(anchor="w")
+
+        # Bind to header size changes for dynamic height-based scaling
+        def on_configure(event):
+            self._resize_logo_to_height(event.height)
+
+        # Ensure we don't bind multiple times
+        header.bind("<Configure>", on_configure, add="+")
+
+        # Trigger initial sizing after Tk lays out widgets
+        self.root.after(0, lambda: self._resize_logo_to_height(header.winfo_height()))
+
+    def _resize_logo_to_height(self, container_height: int):
+        """Resize logo to match container height while preserving aspect ratio."""
+        if container_height <= 0:
+            return
+
+        # Provide some vertical padding
+        target_h = max(24, container_height - 12)
+        if abs(target_h - self._last_logo_height) < 2:
+            return  # skip trivial changes
+
+        # If PIL is available and we have original image, do high-quality scale
+        if self._logo_original is not None:
+            try:
+                from PIL import ImageTk, Image  # type: ignore
+                orig_w, orig_h = self._logo_original.width, self._logo_original.height
+                if orig_h <= 0:
+                    return
+                scale = target_h / float(orig_h)
+                target_w = max(1, int(orig_w * scale))
+                resized = self._logo_original.resize((target_w, target_h), Image.Resampling.LANCZOS)
+                self.logo_photo = ImageTk.PhotoImage(resized)
+                if self.logo_label:
+                    self.logo_label.configure(image=self.logo_photo)
+                self._last_logo_height = target_h
+                return
+            except Exception as e:
+                print(f"[WARNING] PIL resize failed, falling back to Tk scaling: {e}")
+
+        # Fallback: Tk PhotoImage with integer subsampling (downscale only)
+        if isinstance(self.logo_photo, tk.PhotoImage):
+            try:
+                # Re-load original to avoid cumulative subsampling
+                img = tk.PhotoImage(file="NTU.PNG") if os.path.exists("NTU.PNG") else tk.PhotoImage(file="NTU.png")
+                h = img.height()
+                if h > target_h:
+                    factor = max(1, h // target_h)
+                    img = img.subsample(factor)
+                # If smaller than target, keep original size (no integer upscale to avoid distortion)
+                self.logo_photo = img
+                if self.logo_label:
+                    self.logo_label.configure(image=self.logo_photo)
+                self._last_logo_height = img.height()
+            except Exception as e:
+                print(f"[WARNING] Tk PhotoImage resize failed: {e}")
+
+    def _init_logo_static(self, left_area: tk.Frame, target_h: int):
+        """Load and place the NTU logo at a fixed target height, preserving aspect ratio.
+
+        This avoids dynamic resizing and uses the precomputed target height
+        (e.g., 1.3x the title font height).
+        """
+        # Resolve logo file
+        logo_file = None
+        for candidate in ["NTU.PNG", "NTU.png"]:
+            if os.path.exists(candidate):
+                logo_file = candidate
+                break
+        if not logo_file:
+            print("[WARNING] NTU logo not found (NTU.PNG/NTU.png)")
+            return
+
+        # Try PIL for precise scaling
+        try:
+            from PIL import Image, ImageTk  # type: ignore
+            img = Image.open(logo_file)
+            orig_w, orig_h = img.width, img.height
+            if orig_h <= 0:
+                raise ValueError("Invalid image height")
+            scale = float(target_h) / float(orig_h)
+            target_w = max(1, int(orig_w * scale))
+            resized = img.resize((target_w, target_h), Image.Resampling.LANCZOS)
+            self.logo_photo = ImageTk.PhotoImage(resized)
+        except Exception:
+            # Fallback to Tk PhotoImage (integer subsample only)
+            try:
+                base = tk.PhotoImage(file=logo_file)
+                h = base.height()
+                if h > target_h:
+                    factor = max(1, h // max(1, target_h))
+                    base = base.subsample(factor)
+                # No good integer upscale available; keep as-is if smaller
+                self.logo_photo = base
+            except Exception as e:
+                print(f"[WARNING] Failed to load logo statically: {e}")
+                return
+
+        # Create or update label
+        if self.logo_label is None:
+            self.logo_label = tk.Label(left_area, image=self.logo_photo, bg=COLORS["primary"])
+            self.logo_label.pack(anchor="w")
+        else:
+            self.logo_label.configure(image=self.logo_photo)
     
     def _build_listen_tab(self):
         """Build the listening/recognition tab"""
         
         # Title
         tk.Label(self.tab_listen, text="Voice Recognition",
-                font=FONTS["title"], bg=COLORS["bg"]).pack(pady=15)
+                font=("Segoe UI", 18, "bold"), bg=COLORS["bg"]).pack(pady=15)
         
         # Status display
         status_frame = tk.Frame(self.tab_listen, bg=COLORS["bg_dark"], relief=tk.RAISED, bd=2)
@@ -218,7 +386,7 @@ class VoiceControlApp:
         
         self.detailed_status_var = tk.StringVar(value="System starting up...")
         status_label = tk.Label(status_frame, textvariable=self.detailed_status_var,
-                               font=("Segoe UI", 11), bg=COLORS["bg_dark"], fg="white",
+                               font=("Segoe UI", 12), bg=COLORS["bg_dark"], fg="white",
                                justify=tk.LEFT, wraplength=700, pady=15, padx=15)
         status_label.pack(fill=tk.X)
         
@@ -227,7 +395,7 @@ class VoiceControlApp:
         btn_frame.pack(pady=20)
         
         self.btn_start = tk.Button(btn_frame, text="Start Listening",
-                                  font=("Segoe UI", 12, "bold"),
+                                  font=("Segoe UI", 13, "bold"),
                                   bg=COLORS["success"], fg="white",
                                   width=15, height=2,
                                   command=self._start_listening,
@@ -236,7 +404,7 @@ class VoiceControlApp:
         self.btn_start.pack(side=tk.LEFT, padx=10)
         
         self.btn_stop = tk.Button(btn_frame, text="Stop Listening",
-                                 font=("Segoe UI", 12, "bold"),
+                                 font=("Segoe UI", 13, "bold"),
                                  bg=COLORS["danger"], fg="white",
                                  width=15, height=2,
                                  command=self._stop_listening,
@@ -266,7 +434,7 @@ class VoiceControlApp:
         """Build the commands management tab"""
         
         tk.Label(self.tab_commands, text="Command Management",
-                font=FONTS["title"], bg=COLORS["bg"]).pack(pady=15)
+                font=("Segoe UI", 18, "bold"), bg=COLORS["bg"]).pack(pady=15)
         
         # Add command section
         add_frame = tk.Frame(self.tab_commands, bg=COLORS["bg"])
@@ -325,7 +493,7 @@ class VoiceControlApp:
         """Build the training tab"""
         
         tk.Label(self.tab_training, text="Command Training",
-                font=FONTS["title"], bg=COLORS["bg"]).pack(pady=15)
+                font=("Segoe UI", 18, "bold"), bg=COLORS["bg"]).pack(pady=15)
         
         # Training list
         train_frame = tk.LabelFrame(self.tab_training, text="Training Progress",
@@ -363,7 +531,7 @@ class VoiceControlApp:
         """Build the system monitoring tab"""
         
         tk.Label(self.tab_system, text="System Configuration",
-                font=FONTS["title"], bg=COLORS["bg"]).pack(pady=15)
+                font=("Segoe UI", 18, "bold"), bg=COLORS["bg"]).pack(pady=15)
         
         # Configuration panel
         config_frame = tk.Frame(self.tab_system, bg="white", relief=tk.RAISED, bd=1)
@@ -428,7 +596,7 @@ class VoiceControlApp:
     # ========================================================================
     
     def _init_system_async(self):
-        """增强的异步系统初始化 - 带健康监控和错误隔离"""
+        """Enhanced asynchronous system initialization with health monitoring and error isolation"""
         def _init():
             try:
                 self._queue_ui_update(lambda: self._update_status("Initializing..."))
@@ -486,6 +654,13 @@ class VoiceControlApp:
                         # Auto-load commands from JSON
                         self._queue_ui_update(lambda: self._log("[INIT] Auto-loading commands from JSON..."))
                         self.audio_engine.cmd_hotword_mgr.load_commands_from_json()
+                        # Track JSON path and modified time for auto-reload
+                        try:
+                            self._commands_json_path = getattr(self.audio_engine.cmd_hotword_mgr, 'data_file', 'commands_hotwords.json')
+                            self._commands_json_mtime = os.path.getmtime(self._commands_json_path) if os.path.exists(self._commands_json_path) else None
+                        except Exception:
+                            self._commands_json_path = 'commands_hotwords.json'
+                            self._commands_json_mtime = None
                         self.health_monitor.update_component("command_manager", "ready")
                         self._queue_ui_update(lambda: self._log("[OK] Command manager ready"))
                     else:
@@ -589,11 +764,26 @@ class VoiceControlApp:
     # ========================================================================
     
     def _start_auto_refresh(self):
-        """启动自动刷新定时器"""
+        """Start auto-refresh timer (also supports JSON hot-reload)"""
         def _auto_refresh():
             if self.auto_refresh_enabled and self.system_ready:
                 try:
-                    # Auto-refresh commands and training lists
+                    # If external commands JSON changed, reload it
+                    if self._commands_json_path and os.path.exists(self._commands_json_path):
+                        try:
+                            mtime = os.path.getmtime(self._commands_json_path)
+                            if self._commands_json_mtime is None or mtime > self._commands_json_mtime:
+                                if self.audio_engine and getattr(self.audio_engine, 'cmd_hotword_mgr', None):
+                                    if self.audio_engine.cmd_hotword_mgr.load_commands_from_json():
+                                        self._commands_json_mtime = mtime
+                                        self._log("[INFO] Commands JSON reloaded due to external change")
+                                        # Also refresh lists
+                                        self._refresh_commands()
+                                        self._refresh_training()
+                        except Exception as e:
+                            print(f"[WARN] JSON hot-reload check failed: {e}")
+
+                    # Regular UI list refresh
                     self._refresh_commands()
                     self._refresh_training()
                 except Exception as e:
@@ -608,7 +798,7 @@ class VoiceControlApp:
         print(f"[INFO] Auto-refresh enabled (interval: {self.auto_refresh_interval}ms)")
     
     def _reload_commands_json(self):
-        """手动重新加载JSON命令文件"""
+        """Manually reload the JSON command file"""
         if not self.audio_engine or not hasattr(self.audio_engine, 'cmd_hotword_mgr'):
             messagebox.showerror("Error", "Command manager not available")
             return
@@ -853,8 +1043,8 @@ class VoiceControlApp:
     def _write_output(self, text: str) -> bool:
         """Write command to output file"""
         try:
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            content = f"[{timestamp}] Command: {text}\n"
+            # Per specification, write ONLY the core command text (no timestamps or labels)
+            content = f"{text}\n"
             
             with open("output.txt", "w", encoding="utf-8") as f:
                 f.write(content)
@@ -1065,7 +1255,7 @@ class VoiceControlApp:
         self.system_text.config(state=tk.DISABLED)
     
     def _show_health_report(self):
-        """显示系统健康报告"""
+        """Show system health report"""
         report = self.health_monitor.get_status_report()
         
         # Create popup window

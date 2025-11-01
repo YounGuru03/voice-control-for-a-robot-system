@@ -1,5 +1,5 @@
 # ============================================================================
-# audio_engine.py - High-Performance Audio Processing Engine
+# audio_engine.py
 # ============================================================================
 
 import warnings
