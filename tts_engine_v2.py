@@ -20,17 +20,18 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 import traceback
 
-# TTS Status Messages (Clean, no emojis) - Limited to 3 words max
+# TTS Status Messages (FIX #2: Minimized to essential keywords, max 3 words)
+# Removed redundant messages like "Processing" to reduce latency
 TTS_MESSAGES = {
-    "ready": "System ready",
-    "start": "Recognition started",
-    "listening": "Listening now",
-    "please speak": "Please speak",
-    "processing": "Processing now",
-    "not match": "Not recognized",
-    "stop": "Recognition stopped",
-    "stand by": "System standby",
-    "error": "System error"
+    "ready": "Ready",
+    "start": "Started",
+    "listening": "Listening",
+    "please speak": "Speak now",
+    "processing": "",  # REMOVED: Redundant, causes latency
+    "not match": "Unknown",
+    "stop": "Stopped",
+    "stand by": "Standby",
+    "error": "Error"
 }
 
 class TTSEngine:
@@ -44,6 +45,7 @@ class TTSEngine:
     - Unicode-aware text preprocessing
     - Thread-safe operations with proper locking
     - Clean resource cleanup on exit
+    - TTS completion callbacks for STT synchronization
     """
     
     def __init__(self, config_file: str = "tts_config.json"):
@@ -67,6 +69,11 @@ class TTSEngine:
         # Performance tracking
         self._speaking = False
         self._queue_stats = {"processed": 0, "dropped": 0, "errors": 0}
+        
+        # TTS-STT synchronization (FIX #1)
+        self._completion_event = threading.Event()
+        self._completion_event.set()  # Initially not speaking
+        self._speaking_start_time = 0
         
         # Error recovery
         self._consecutive_errors = 0
@@ -381,10 +388,18 @@ class TTSEngine:
                     try:
                         with self._engine_lock:
                             if self.engine and self.config.get("enabled", True):
+                                # Signal TTS start (FIX #1: TTS-STT synchronization)
+                                self._completion_event.clear()
                                 self._speaking = True
+                                self._speaking_start_time = time.time()
+                                
                                 # Use synchronous speaking for queue processing
                                 self.engine.Speak(clean_text, 0)  # 0 = synchronous
+                                
+                                # Signal TTS completion (FIX #1)
                                 self._speaking = False
+                                self._completion_event.set()
+                                
                                 self._queue_stats["processed"] += 1
                                 self._consecutive_errors = 0  # Reset on success
                                 
@@ -565,6 +580,30 @@ class TTSEngine:
     def is_speaking(self) -> bool:
         """Check if currently speaking"""
         return self._speaking
+    
+    def wait_for_completion(self, timeout: float = 5.0) -> bool:
+        """
+        Wait for TTS to complete speaking (FIX #1: TTS-STT synchronization).
+        Returns True if TTS completed, False if timeout occurred.
+        """
+        return self._completion_event.wait(timeout=timeout)
+    
+    def get_estimated_duration(self, text: str) -> float:
+        """
+        Estimate TTS duration based on word count and rate.
+        Used as fallback when completion polling is not available.
+        """
+        if not text:
+            return 0.0
+        
+        words = len(text.split())
+        # Base rate: ~150 words per minute (2.5 words per second)
+        # Adjust for engine rate setting (-10 to +10)
+        rate_factor = 1.0 + (self.config.get("rate", 0) * 0.1)  # ±100% adjustment
+        duration = words / (2.5 * rate_factor)
+        
+        # Add buffer for processing
+        return duration + 0.5
     
     def clear_queue(self):
         """Clear pending TTS queue"""

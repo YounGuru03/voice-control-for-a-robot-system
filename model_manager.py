@@ -33,8 +33,11 @@ class ModelManager:
         # Resolve models directory to be persistent and next to the executable when frozen
         if getattr(sys, 'frozen', False):
             base_dir = Path(sys.executable).parent
+            print(f"[ModelManager] Running in FROZEN mode, base_dir: {base_dir}")
         else:
             base_dir = Path.cwd()
+            print(f"[ModelManager] Running in DEVELOPMENT mode, base_dir: {base_dir}")
+        
         self.models_dir = (base_dir / models_dir).resolve()
         self.models_dir.mkdir(parents=True, exist_ok=True)
         
@@ -50,7 +53,11 @@ class ModelManager:
         self._model_cache = {}
         self._cache_enabled = False
         
-        print(f"ModelManager initialized - Models dir: {self.models_dir}")
+        print(f"[ModelManager] Initialized - Models dir: {self.models_dir}")
+        print(f"[ModelManager] Models dir exists: {self.models_dir.exists()}")
+        if self.models_dir.exists():
+            contents = list(self.models_dir.iterdir())
+            print(f"[ModelManager] Contents: {[p.name for p in contents[:5]]}")  # Show first 5
     
     def get_available_models(self) -> List[str]:
         """Get list of available model names"""
@@ -94,13 +101,43 @@ class ModelManager:
                 try:
                     from faster_whisper import WhisperModel
                     
-                    model = WhisperModel(
-                        model_name,
-                        device="cpu",
-                        compute_type="int8",
-                        download_root=str(self.models_dir),
-                        num_workers=1  # Reduce resource usage
-                    )
+                    # CRITICAL FIX for frozen EXE: Check if model exists locally first
+                    # faster-whisper expects models in HuggingFace cache format
+                    local_model_path = None
+                    
+                    if self.models_dir.exists():
+                        # Check for model in HuggingFace cache structure
+                        # Format: models--Systran--faster-whisper-{size}
+                        model_folder = f"models--Systran--faster-whisper-{model_name}"
+                        hf_cache_path = self.models_dir / model_folder
+                        
+                        if hf_cache_path.exists():
+                            # Find the actual model files in snapshots subfolder
+                            snapshots_dir = hf_cache_path / "snapshots"
+                            if snapshots_dir.exists():
+                                snapshot_dirs = list(snapshots_dir.iterdir())
+                                if snapshot_dirs:
+                                    local_model_path = str(snapshot_dirs[0])
+                                    print(f"[ModelManager] Found local model at: {local_model_path}")
+                    
+                    # Load model - use local path if available, otherwise download
+                    if local_model_path:
+                        print(f"[ModelManager] Loading from local path: {local_model_path}")
+                        model = WhisperModel(
+                            local_model_path,
+                            device="cpu",
+                            compute_type="int8",
+                            num_workers=1
+                        )
+                    else:
+                        print(f"[ModelManager] Downloading model to: {self.models_dir}")
+                        model = WhisperModel(
+                            model_name,
+                            device="cpu",
+                            compute_type="int8",
+                            download_root=str(self.models_dir),
+                            num_workers=1
+                        )
                     
                     # Cache if enabled
                     if self._cache_enabled:

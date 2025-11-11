@@ -20,11 +20,12 @@ import subprocess
 import time
 from pathlib import Path
 from typing import List, Dict, Any
+import site
 
 # Build Configuration
 BUILD_CONFIG = {
-    "app_name": "VoiceControlSystem",
-    "version": "2.2.0",
+    "app_name": "VoiceControl",
+    "version": "2.3.0",
     "description": "Enhanced Voice Control Application with Windows SAPI TTS",
     "author": "Voice Control Team",
     "main_script": "main_voice_app.py",
@@ -42,7 +43,13 @@ BUILD_CONFIG = {
     
     # Runtime hooks
     "use_runtime_hooks": True,
-    "runtime_hooks_dir": "runtime_hooks"
+    "runtime_hooks_dir": "runtime_hooks",
+
+    # Optional features
+    "require_admin": False,            # Request UAC admin if audio devices need it
+    "include_local_models": True,      # Bundle local_models/ if present
+    "include_onnxruntime": True,       # Include ONNX Runtime for VAD
+    "discover_binaries": True          # Auto-discover DLLs (PortAudio/CT2/ONNX)
 }
 
 class EnhancedVoiceControlBuilder:
@@ -103,6 +110,11 @@ class EnhancedVoiceControlBuilder:
             "tkinter": "GUI framework"
         }
         
+        # FIX #6: VAD dependencies (optional but recommended)
+        optional_packages = {
+            "onnxruntime": "VAD (Voice Activity Detection) support - recommended"
+        }
+        
         missing = []
         for package, description in required_packages.items():
             try:
@@ -113,6 +125,12 @@ class EnhancedVoiceControlBuilder:
                 elif package == "faster-whisper":
                     from faster_whisper import WhisperModel
                     self.log(f"✓ {package}: {description}")
+                    # Backend library often required
+                    try:
+                        import ctranslate2  # noqa: F401
+                        self.log("  ↳ ctranslate2 available")
+                    except Exception as e:
+                        self.log(f"  ↳ ctranslate2 check failed: {e}", "WARNING")
                     
                 elif package == "pywin32":
                     # CRITICAL: Comprehensive pywin32 check
@@ -179,9 +197,93 @@ class EnhancedVoiceControlBuilder:
             
             return False
         
-        self.log("✓ All dependencies satisfied", "SUCCESS")
+        self.log("✓ All required dependencies satisfied", "SUCCESS")
+        
+        # FIX #6: Check optional VAD dependencies
+        self.log("", "INFO")
+        self.log("Checking optional dependencies (for VAD)...", "INFO")
+        for package, description in optional_packages.items():
+            try:
+                if package == "onnxruntime":
+                    import onnxruntime
+                    self.log(f"✓ {package}: {description} - v{onnxruntime.__version__}")
+            except ImportError:
+                self.log(f"⚠ {package}: {description} - NOT INSTALLED (VAD may not work)", "WARNING")
+                self.log(f"  To enable VAD: pip install {package}", "WARNING")
+        
         return True
     
+    def _find_site_packages(self) -> List[Path]:
+        paths: List[str] = []
+        try:
+            paths.extend(site.getsitepackages())
+        except Exception:
+            pass
+        try:
+            user = site.getusersitepackages()
+            if user:
+                paths.append(user)
+        except Exception:
+            pass
+        # Deduplicate preserving order
+        seen = set()
+        unique_paths = []
+        for p in paths:
+            if p not in seen:
+                seen.add(p)
+                unique_paths.append(p)
+        return [Path(p) for p in unique_paths]
+
+    def discover_runtime_binaries(self) -> List[tuple]:
+        """Discover critical runtime DLLs to include as binaries.
+        Returns a list of (abs_path, dest_dir) tuples.
+        """
+        bins: List[tuple] = []
+        if not self.config.get("discover_binaries", True):
+            return bins
+
+        sp_paths = self._find_site_packages()
+
+        def add_matches(patterns: List[str], dest: str):
+            for base in sp_paths:
+                for pat in patterns:
+                    for match in base.glob(pat):
+                        if match.is_file():
+                            bins.append((str(match), dest))
+
+        # PyAudio / PortAudio
+        try:
+            import pyaudio  # noqa: F401
+            add_matches([
+                "pyaudio/*portaudio*.dll",
+                "pyaudio/*_portaudio*.pyd"
+            ], ".")
+        except Exception:
+            pass
+
+        # CTranslate2 (native DLLs)
+        try:
+            import ctranslate2 as _ct2  # noqa: F401
+            add_matches([
+                "ctranslate2/*.dll",
+                "ctranslate2.libs/*.dll"
+            ], ".")
+        except Exception:
+            pass
+
+        # ONNX Runtime (optional)
+        if self.config.get("include_onnxruntime", True):
+            try:
+                import onnxruntime  # noqa: F401
+                add_matches([
+                    "onnxruntime/*.dll",
+                    "onnxruntime/capi/*.dll"
+                ], ".")
+            except Exception:
+                pass
+
+        return bins
+
     def create_runtime_hooks(self) -> bool:
         """Create runtime hooks for COM initialization and environment setup"""
         if not self.config["use_runtime_hooks"]:
@@ -379,13 +481,56 @@ _setup_environment()
                 str(self.runtime_hooks_dir / "hook_com_init.py"),
                 str(self.runtime_hooks_dir / "hook_env_setup.py")
             ]
+
+        # Datas (only existing files)
+        datas: List[tuple] = []
+        for name in ("commands_hotwords.json", "tts_config.json", "NTU.PNG"):
+            if Path(name).exists():
+                datas.append((name, '.'))
+        if self.config.get("include_local_models", True) and Path('local_models').exists():
+            datas.append(('local_models', 'local_models'))
         
-        runtime_hooks_str = ",\n        ".join([f"'{hook}'" for hook in runtime_hooks])
-        if runtime_hooks_str:
-            runtime_hooks_str = f"\n        {runtime_hooks_str}\n    "
-        else:
-            runtime_hooks_str = ""
-        
+        # CRITICAL: Include faster-whisper VAD assets (silero_vad_v6.onnx)
+        try:
+            import faster_whisper
+            fw_path = Path(faster_whisper.__file__).parent
+            assets_dir = fw_path / 'assets'
+            if assets_dir.exists():
+                # Include all ONNX models in faster_whisper/assets
+                datas.append((str(assets_dir), 'faster_whisper/assets'))
+                self.log(f"✓ Including faster-whisper VAD assets from {assets_dir}")
+            else:
+                self.log(f"⚠ faster-whisper assets dir not found at {assets_dir}", "WARNING")
+        except Exception as e:
+            self.log(f"⚠ Could not locate faster-whisper assets: {e}", "WARNING")
+
+        # Hidden imports
+        hiddenimports = [
+            'faster_whisper', 'faster_whisper.transcribe', 'faster_whisper.vad',
+            'faster_whisper.audio', 'faster_whisper.feature_extractor', 'faster_whisper.tokenizer',
+            'ctranslate2', 'ctranslate2._ext', 'ctranslate2.specs', 'ctranslate2.models', 'ctranslate2.converters',
+            'tokenizers', 'tokenizers.implementations', 'tokenizers.models', 'tokenizers.pre_tokenizers',
+            'tokenizers.decoders', 'tokenizers.processors', 'tokenizers.normalizers',
+            'onnxruntime', 'onnxruntime.capi', 'onnxruntime.capi.onnxruntime_pybind11_state',
+            'win32com', 'win32com.client', 'win32com.client.gencache', 'win32com.client.genpy',
+            'win32com.client.dynamic', 'win32com.client.build', 'win32com.gen_py', 'pythoncom',
+            'pywintypes', 'win32api', 'win32con', 'win32timezone',
+            'pyaudio', '_portaudio',
+            'numpy', 'numpy.core', 'numpy.core.multiarray', 'numpy.core._multiarray_umath', 'numpy._distributor_init',
+            'numpy.fft', 'numpy.linalg', 'numpy.random',
+            'threading', 'queue', 'json', 'pathlib', 'datetime', 'time', 'traceback', 'collections', 'difflib',
+            'tkinter', 'tkinter.ttk', 'tkinter.scrolledtext', 'tkinter.messagebox', 'tkinter.filedialog', '_tkinter',
+        ]
+
+        # Excludes
+        excludes = [
+            'matplotlib', 'scipy', 'pandas', 'PIL', 'cv2', 'tensorflow', 'torch',
+            'transformers', 'jupyter', 'IPython', 'pyttsx3', 'openai', 'whisper'
+        ]
+
+        # Discovered binaries
+        binaries = self.discover_runtime_binaries()
+
         spec_content = f'''# -*- mode: python ; coding: utf-8 -*-
 # ============================================================================
 # Voice Control System v2 - Enhanced PyInstaller Spec File
@@ -405,92 +550,15 @@ from pathlib import Path
 APP_NAME = "{self.config["app_name"]}"
 VERSION = "{self.config["version"]}"
 
-# Data files (CRITICAL: Include all necessary resources)
-datas = [
-    ('commands_hotwords.json', '.'),
-    ('tts_config.json', '.'),
-    ('NTU.PNG', '.'),
-]
+datas = {datas}
 
-# Include local models if they exist
-if Path('local_models').exists():
-    datas.append(('local_models', 'local_models'))
+# CRITICAL: Comprehensive hidden imports for Windows TTS and faster-whisper
+hiddenimports = {hiddenimports}
 
-    # CRITICAL: Comprehensive hidden imports for Windows TTS and faster-whisper
-hiddenimports = [
-    # Faster-Whisper (Speech Recognition)
-    'faster_whisper',
-    'faster_whisper.transcribe',
-    'faster_whisper.vad',
-    'faster_whisper.audio',
-    'faster_whisper.feature_extractor',
-        'ctranslate2',
-    
-    # Windows COM/SAPI (CRITICAL for TTS)
-    'win32com',
-    'win32com.client',
-    'win32com.client.gencache',
-    'win32com.client.genpy',
-    'win32com.client.dynamic',
-    'win32com.client.build',
-    'win32com.gen_py',
-    'pythoncom',
-    'pywintypes',
-    'win32api',
-    'win32con',
-    
-    # Audio Processing
-    'pyaudio',
-    '_portaudio',
-    
-    # NumPy (CRITICAL: Include all required submodules)
-    'numpy',
-    'numpy.core',
-    'numpy.core.multiarray',
-    'numpy.core._multiarray_umath',
-    'numpy.fft',
-    'numpy.linalg',
-    'numpy.random',
-    
-    # Standard Library (Required by application)
-    'threading',
-    'queue',
-    'json',
-    'pathlib',
-    'datetime',
-    'time',
-    'traceback',
-    'collections',
-    'difflib',
-    
-    # UI (Tkinter)
-    'tkinter',
-    'tkinter.ttk',
-    'tkinter.scrolledtext',
-    'tkinter.messagebox',
-    'tkinter.filedialog',
-    '_tkinter',
-]
+# Binaries (discovered by builder)
+binaries = {binaries}
 
-# Binaries (Let PyInstaller auto-detect)
-binaries = []
-
-# CRITICAL: Exclude large unused packages to reduce size
-excludes = [
-    'matplotlib',
-    'scipy',
-    'pandas',
-    'PIL',
-    'cv2',
-    'tensorflow',
-    'torch',
-    'transformers',
-    'jupyter',
-    'IPython',
-    'pyttsx3',  # Old TTS engine (not needed)
-    'openai',
-    'whisper',  # Using faster-whisper instead
-]
+excludes = {excludes}
 
 # Analysis
 a = Analysis(
@@ -501,7 +569,7 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={{}},
-    runtime_hooks=[{runtime_hooks_str}],
+    runtime_hooks={runtime_hooks},
     excludes=excludes,
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
@@ -531,7 +599,8 @@ exe = EXE(
     upx=False,  # Disable UPX to avoid breaking native DLLs (portaudio/ctranslate2)
     upx_exclude=['*ctranslate2*', '*portaudio*', '*pyaudio*', '*.dll'],
     runtime_tmpdir=None,
-    console=False,  # Windowed application
+    console={'False' if self.config.get('windowed', True) else 'True'},  # Windowed application
+    uac_admin={'True' if self.config.get('require_admin', False) else 'False'},
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
@@ -632,6 +701,27 @@ exe = EXE(
         
         self.log("✓ Build verification complete", "SUCCESS")
         return True
+
+    def generate_verification_report(self):
+        """Write a simple verification report alongside the EXE."""
+        try:
+            report_path = self.output_dir / "verification_report.txt"
+            lines = []
+            lines.append("Voice Control Build Verification Report")
+            lines.append(f"App: {self.config['app_name']} v{self.config['version']}")
+            lines.append(f"Windowed: {self.config.get('windowed', True)}")
+            lines.append(f"Require Admin: {self.config.get('require_admin', False)}")
+            lines.append(f"Include local_models: {self.config.get('include_local_models', True)}")
+            lines.append(f"Include ONNX Runtime: {self.config.get('include_onnxruntime', True)}")
+            lines.append("")
+            lines.append("Included files (if present):")
+            for name in ("commands_hotwords.json", "tts_config.json", "NTU.PNG"):
+                lines.append(f"  - {name}: {'FOUND' if Path(name).exists() else 'MISSING at build time'}")
+            with open(report_path, 'w', encoding='utf-8') as f:
+                f.write("\n".join(lines) + "\n")
+            self.log(f"✓ Verification report written: {report_path}")
+        except Exception as e:
+            self.log(f"Verification report error: {e}", "WARNING")
     
     def save_build_log(self):
         """Save build log to file"""
@@ -694,6 +784,8 @@ exe = EXE(
         if not self.verify_build():
             self.log("✗ Verification failed", "ERROR")
             return False
+        # Write human-readable verification summary
+        self.generate_verification_report()
         
         # Success
         elapsed = time.time() - self.start_time

@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox, filedialog
 import tkinter.font as tkfont
 import os
+import sys
 import threading
 import time
 import traceback
@@ -154,8 +155,11 @@ class VoiceControlApp:
         self.ui_updates = []
         self.ui_lock = threading.Lock()
         
-        # Auto-refresh settings
+        # Auto-refresh settings (FIX #4: Disable JSON monitoring in packaged builds)
+        # JSON hot-reload should only work in development mode
+        is_packaged = getattr(sys, 'frozen', False)
         self.auto_refresh_enabled = True
+        self.enable_json_hot_reload = not is_packaged  # Disabled for .exe builds
         self.auto_refresh_interval = 5000  # 5 seconds
         
         # Build UI first
@@ -764,12 +768,12 @@ class VoiceControlApp:
     # ========================================================================
     
     def _start_auto_refresh(self):
-        """Start auto-refresh timer (also supports JSON hot-reload)"""
+        """Start auto-refresh timer (also supports JSON hot-reload in dev mode only)"""
         def _auto_refresh():
             if self.auto_refresh_enabled and self.system_ready:
                 try:
-                    # If external commands JSON changed, reload it
-                    if self._commands_json_path and os.path.exists(self._commands_json_path):
+                    # FIX #4: JSON hot-reload only in development mode, not in packaged builds
+                    if self.enable_json_hot_reload and self._commands_json_path and os.path.exists(self._commands_json_path):
                         try:
                             mtime = os.path.getmtime(self._commands_json_path)
                             if self._commands_json_mtime is None or mtime > self._commands_json_mtime:
@@ -795,7 +799,8 @@ class VoiceControlApp:
         
         # Start the timer
         self.root.after(self.auto_refresh_interval, _auto_refresh)
-        print(f"[INFO] Auto-refresh enabled (interval: {self.auto_refresh_interval}ms)")
+        mode_str = "(with JSON hot-reload)" if self.enable_json_hot_reload else "(packaged mode, no JSON monitoring)"
+        print(f"[INFO] Auto-refresh enabled {mode_str} (interval: {self.auto_refresh_interval}ms)")
     
     def _reload_commands_json(self):
         """Manually reload the JSON command file"""
@@ -977,8 +982,7 @@ class VoiceControlApp:
                         
                         print(f"[TRANSCRIBED] '{text}'")
                         
-                        if self.audio_engine.tts_mgr:
-                            self.audio_engine.tts_mgr.speak_status("processing")
+                        # FIX #2: Removed "processing" TTS (redundant, causes latency)
                         
                         commands = self.audio_engine.get_all_commands()
                         matched_cmd = self.audio_engine.match_command(text, commands)
@@ -993,20 +997,31 @@ class VoiceControlApp:
                                 self._queue_ui_update(lambda: self._update_detailed_status(
                                     f"Success! Command '{matched_cmd}' executed"))
                                 
+                                # FIX #1: TTS-STT synchronization
                                 if self.audio_engine.tts_mgr:
                                     self.audio_engine.tts_mgr.speak_command(matched_cmd)
+                                    # Block STT restart until TTS completes
+                                    tts_completed = self.audio_engine.tts_mgr.wait_for_completion(timeout=5.0)
+                                    if not tts_completed:
+                                        # Fallback: Fixed delay if TTS status unavailable
+                                        print("[WARN] TTS completion timeout, using fallback delay")
+                                        time.sleep(2.5)
                             else:
                                 msg = f"[{timestamp}] Command: '{matched_cmd}' (write failed)"
                                 if self.audio_engine.tts_mgr:
                                     self.audio_engine.tts_mgr.speak_status("error")
+                                    self.audio_engine.tts_mgr.wait_for_completion(timeout=3.0)
                         else:
                             fail_count += 1
                             msg = f"[{timestamp}] '{text}' -> No match ({fail_count}/{max_failures})"
                             self._queue_ui_update(lambda: self._update_detailed_status(
                                 f"No matching command: '{text}'"))
                             
+                            # FIX #1: TTS-STT synchronization
                             if self.audio_engine.tts_mgr:
                                 self.audio_engine.tts_mgr.speak_status("not match")
+                                # Block STT restart until TTS completes
+                                self.audio_engine.tts_mgr.wait_for_completion(timeout=3.0)
                         
                         self._queue_ui_update(lambda: self._log(msg))
                         
