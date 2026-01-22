@@ -68,6 +68,9 @@ An **enterprise-grade, fully offline voice control transcription system** for Wi
 
 ---
 
+<img width="2016" height="770" alt="architecture" src="https://github.com/user-attachments/assets/9e53b632-c202-448f-92c5-f5bfbad954ba" />
+
+
 ## Features
 
 ### Speech Recognition
