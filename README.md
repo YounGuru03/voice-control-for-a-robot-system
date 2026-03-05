@@ -66,9 +66,12 @@ An **enterprise-grade, fully offline voice control transcription system** for Wi
 | **GUI** | Tkinter | Cross-platform UI framework |
 | **Packaging** | PyInstaller | Single-file executable generation |
 
+
+
+<img width="1408" height="768" alt="generated-image" src="https://github.com/user-attachments/assets/5dc7605d-67c0-41d9-9f33-cc6ac02d00d4" />
+
 ---
 
-<img width="2016" height="770" alt="architecture" src="https://github.com/user-attachments/assets/9e53b632-c202-448f-92c5-f5bfbad954ba" />
 
 
 ## Features
@@ -780,7 +783,6 @@ Please submit issues and pull requests via GitHub.
 ## Documentation
 
 - **BUILD_NOTES.md** - Comprehensive build system documentation
-- **构建修复说明.md** - Chinese build fix guide
 - **verify_build.py** - Automated build verification script
 - **stt_debug.log** - Runtime debug log (created next to EXE)
 
