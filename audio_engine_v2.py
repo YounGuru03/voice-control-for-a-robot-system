@@ -12,6 +12,11 @@ Enhanced audio processing engine with:
 
 import warnings
 warnings.filterwarnings("ignore")
+warnings.warn(
+    "audio_engine_v2.py is deprecated; use src/robot_voice/services + src/robot_voice/audio instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 import os
 import sys

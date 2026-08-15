@@ -11,6 +11,13 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 from difflib import SequenceMatcher
 import sys
+import warnings
+
+warnings.warn(
+    "command_manager.py is deprecated; use src/robot_voice/commands and src/robot_voice/nlu.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 class CommandManager:
     """

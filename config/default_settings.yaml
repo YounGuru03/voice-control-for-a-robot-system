@@ -1,0 +1,18 @@
+locale: zh-CN
+control_mode: AUTO_VAD
+command_confidence_threshold: 0.75
+low_confidence_confirmation_threshold: 0.65
+vad:
+  frame_ms: 20
+  pre_roll_ms: 300
+  post_roll_ms: 450
+  min_recording_ms: 350
+  max_recording_ms: 15000
+  speech_start_frames: 3
+  silence_end_frames: 8
+  energy_threshold: 0.015
+asr:
+  backend: faster_whisper
+  model_name: base
+  language: zh
+  use_gpu: false

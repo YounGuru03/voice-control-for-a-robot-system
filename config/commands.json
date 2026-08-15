@@ -1,0 +1,834 @@
+{
+  "version": 1,
+  "locale": "zh-CN",
+  "commands": [
+    {
+      "id": "10_day",
+      "intent": "robot.10",
+      "text": "10 day",
+      "aliases": [],
+      "keywords": [
+        "10",
+        "day"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "10_week",
+      "intent": "robot.10",
+      "text": "10 week",
+      "aliases": [],
+      "keywords": [
+        "10",
+        "week"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "1_day",
+      "intent": "robot.1",
+      "text": "1 day",
+      "aliases": [],
+      "keywords": [
+        "1",
+        "day"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "1_week",
+      "intent": "robot.1",
+      "text": "1 week",
+      "aliases": [],
+      "keywords": [
+        "1",
+        "week"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "2_day",
+      "intent": "robot.2",
+      "text": "2 day",
+      "aliases": [],
+      "keywords": [
+        "2",
+        "day"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "2_week",
+      "intent": "robot.2",
+      "text": "2 week",
+      "aliases": [],
+      "keywords": [
+        "2",
+        "week"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "3_day",
+      "intent": "robot.3",
+      "text": "3 day",
+      "aliases": [],
+      "keywords": [
+        "3",
+        "day"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "3_week",
+      "intent": "robot.3",
+      "text": "3 week",
+      "aliases": [],
+      "keywords": [
+        "3",
+        "week"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "4_day",
+      "intent": "robot.4",
+      "text": "4 day",
+      "aliases": [],
+      "keywords": [
+        "4",
+        "day"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "4_week",
+      "intent": "robot.4",
+      "text": "4 week",
+      "aliases": [],
+      "keywords": [
+        "4",
+        "week"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "5_day",
+      "intent": "robot.5",
+      "text": "5 day",
+      "aliases": [],
+      "keywords": [
+        "5",
+        "day"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "5_week",
+      "intent": "robot.5",
+      "text": "5 week",
+      "aliases": [],
+      "keywords": [
+        "5",
+        "week"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "6_day",
+      "intent": "robot.6",
+      "text": "6 day",
+      "aliases": [],
+      "keywords": [
+        "6",
+        "day"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "6_week",
+      "intent": "robot.6",
+      "text": "6 week",
+      "aliases": [],
+      "keywords": [
+        "6",
+        "week"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "7_day",
+      "intent": "robot.7",
+      "text": "7 day",
+      "aliases": [],
+      "keywords": [
+        "7",
+        "day"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "7_week",
+      "intent": "robot.7",
+      "text": "7 week",
+      "aliases": [],
+      "keywords": [
+        "7",
+        "week"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "8_day",
+      "intent": "robot.8",
+      "text": "8 day",
+      "aliases": [],
+      "keywords": [
+        "8",
+        "day"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "8_week",
+      "intent": "robot.8",
+      "text": "8 week",
+      "aliases": [],
+      "keywords": [
+        "8",
+        "week"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "9_day",
+      "intent": "robot.9",
+      "text": "9 day",
+      "aliases": [],
+      "keywords": [
+        "9",
+        "day"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "9_week",
+      "intent": "robot.9",
+      "text": "9 week",
+      "aliases": [],
+      "keywords": [
+        "9",
+        "week"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "close_camera_1",
+      "intent": "robot.close",
+      "text": "close camera 1",
+      "aliases": [],
+      "keywords": [
+        "close",
+        "camera",
+        "1"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "close_camera_2",
+      "intent": "robot.close",
+      "text": "close camera 2",
+      "aliases": [],
+      "keywords": [
+        "close",
+        "camera",
+        "2"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "close_camera_3",
+      "intent": "robot.close",
+      "text": "close camera 3",
+      "aliases": [],
+      "keywords": [
+        "close",
+        "camera",
+        "3"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "close_camera_4",
+      "intent": "robot.close",
+      "text": "close camera 4",
+      "aliases": [],
+      "keywords": [
+        "close",
+        "camera",
+        "4"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "open_1",
+      "intent": "robot.open",
+      "text": "open 1",
+      "aliases": [],
+      "keywords": [
+        "open",
+        "1"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "open_2",
+      "intent": "robot.open",
+      "text": "open 2",
+      "aliases": [],
+      "keywords": [
+        "open",
+        "2"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "open_alarm",
+      "intent": "robot.open",
+      "text": "open alarm",
+      "aliases": [],
+      "keywords": [
+        "open",
+        "alarm"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "open_camera",
+      "intent": "robot.open",
+      "text": "open camera",
+      "aliases": [],
+      "keywords": [
+        "open",
+        "camera"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "open_camera_1",
+      "intent": "robot.open",
+      "text": "open camera 1",
+      "aliases": [],
+      "keywords": [
+        "open",
+        "camera",
+        "1"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "open_camera_2",
+      "intent": "robot.open",
+      "text": "open camera 2",
+      "aliases": [],
+      "keywords": [
+        "open",
+        "camera",
+        "2"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "open_camera_3",
+      "intent": "robot.open",
+      "text": "open camera 3",
+      "aliases": [],
+      "keywords": [
+        "open",
+        "camera",
+        "3"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "open_camera_4",
+      "intent": "robot.open",
+      "text": "open camera 4",
+      "aliases": [],
+      "keywords": [
+        "open",
+        "camera",
+        "4"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "open_lamp",
+      "intent": "robot.open",
+      "text": "open lamp",
+      "aliases": [],
+      "keywords": [
+        "open",
+        "lamp"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "open_main",
+      "intent": "robot.open",
+      "text": "open main",
+      "aliases": [],
+      "keywords": [
+        "open",
+        "main"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "open_record",
+      "intent": "robot.open",
+      "text": "open record",
+      "aliases": [],
+      "keywords": [
+        "open",
+        "record"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "open_report",
+      "intent": "robot.open",
+      "text": "open report",
+      "aliases": [],
+      "keywords": [
+        "open",
+        "report"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "open_robot",
+      "intent": "robot.open",
+      "text": "open robot",
+      "aliases": [],
+      "keywords": [
+        "open",
+        "robot"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "open_robot_cell",
+      "intent": "robot.open",
+      "text": "open robot cell",
+      "aliases": [],
+      "keywords": [
+        "open",
+        "robot",
+        "cell"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "open_trend",
+      "intent": "robot.open",
+      "text": "open trend",
+      "aliases": [],
+      "keywords": [
+        "open",
+        "trend"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "open_user_admin",
+      "intent": "robot.open",
+      "text": "open user admin",
+      "aliases": [],
+      "keywords": [
+        "open",
+        "user",
+        "admin"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "open_user_log",
+      "intent": "robot.open",
+      "text": "open user log",
+      "aliases": [],
+      "keywords": [
+        "open",
+        "user",
+        "log"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "open_user_logging",
+      "intent": "robot.open",
+      "text": "open user logging",
+      "aliases": [],
+      "keywords": [
+        "open",
+        "user",
+        "logging"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "template_10",
+      "intent": "robot.template",
+      "text": "template 10",
+      "aliases": [],
+      "keywords": [
+        "template",
+        "10"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "template_8",
+      "intent": "robot.template",
+      "text": "template 8",
+      "aliases": [],
+      "keywords": [
+        "template",
+        "8"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "template_9",
+      "intent": "robot.template",
+      "text": "template 9",
+      "aliases": [],
+      "keywords": [
+        "template",
+        "9"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "template_a",
+      "intent": "robot.template",
+      "text": "template A",
+      "aliases": [],
+      "keywords": [
+        "template",
+        "a"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "template_b",
+      "intent": "robot.template",
+      "text": "template B",
+      "aliases": [],
+      "keywords": [
+        "template",
+        "b"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    },
+    {
+      "id": "template_c",
+      "intent": "robot.template",
+      "text": "template C",
+      "aliases": [],
+      "keywords": [
+        "template",
+        "c"
+      ],
+      "regex": null,
+      "slots": {},
+      "parameter_rules": [],
+      "risk_level": "LOW",
+      "priority": 50,
+      "enabled": true,
+      "needs_confirmation": false
+    }
+  ]
+}

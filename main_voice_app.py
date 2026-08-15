@@ -7,11 +7,18 @@ from tkinter import ttk, scrolledtext, messagebox, filedialog
 import tkinter.font as tkfont
 import os
 import sys
+import warnings
 import threading
 import time
 import traceback
 from datetime import datetime
 from typing import Optional, Dict, Any, List
+
+warnings.warn(
+    "main_voice_app.py is deprecated; use src/robot_voice/ui/main.py.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 # Import optimized core modules
 try:
