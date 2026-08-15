@@ -7,7 +7,6 @@ from robot_voice.app.settings import AppSettings
 from robot_voice.commands.repository import CommandRepository
 from robot_voice.domain.models import ParsedIntent
 
-
 SYNONYMS = {
     "前进": "forward",
     "后退": "backward",

@@ -26,7 +26,7 @@ class EndpointDetector:
         self._recorded_ms = 0
         self._is_recording = False
         pre_roll_frames = max(1, config.pre_roll_ms // config.frame_ms)
-        self._pre_roll = deque(maxlen=pre_roll_frames)
+        self._pre_roll: deque[np.ndarray] = deque(maxlen=pre_roll_frames)
 
     @property
     def is_recording(self) -> bool:
@@ -64,9 +64,7 @@ class EndpointDetector:
         if self._is_recording:
             output.append(frame)
             self._recorded_ms += self.config.frame_ms
-            if self._recorded_ms >= self.config.max_recording_ms:
-                finished = True
-            elif (
+            if self._recorded_ms >= self.config.max_recording_ms or (
                 self._recorded_ms >= self.config.min_recording_ms
                 and self._silence_frames >= self.config.silence_end_frames
             ):

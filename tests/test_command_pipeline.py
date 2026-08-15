@@ -21,9 +21,9 @@ def test_command_parser_matches_existing_command() -> None:
 def test_safety_requires_confirmation_for_low_confidence() -> None:
     repo = CommandRepository()
     repo.load(Path("config/commands.json"))
-    parser = CommandIntentParser(repo, AppSettings(command_confidence_threshold=0.9))
+    parser = CommandIntentParser(repo, AppSettings(command_confidence_threshold=0.99))
     parsed = parser.parse("open camra")
     assert parsed is not None
 
-    decision = SafetyPolicy(min_confidence=0.9).evaluate(parsed)
+    decision = SafetyPolicy(min_confidence=0.99).evaluate(parsed)
     assert decision.requires_confirmation

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QObject, Property, Signal, Slot
+from PySide6.QtCore import Property, QObject, Signal, Slot
 
 from robot_voice.app.container import AppContainer
 

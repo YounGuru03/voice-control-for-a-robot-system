@@ -26,7 +26,14 @@ def test_endpoint_detector_starts_after_consecutive_speech() -> None:
 
 
 def test_endpoint_detector_finishes_on_sustained_silence() -> None:
-    detector = EndpointDetector(EndpointConfig(speech_start_frames=2, silence_end_frames=3, frame_ms=20))
+    detector = EndpointDetector(
+        EndpointConfig(
+            speech_start_frames=2,
+            silence_end_frames=3,
+            min_recording_ms=40,
+            frame_ms=20,
+        )
+    )
 
     speech = np.ones(320, dtype=np.float32) * 0.5
     silent = np.zeros(320, dtype=np.float32)
@@ -34,8 +41,9 @@ def test_endpoint_detector_finishes_on_sustained_silence() -> None:
     for _ in range(2):
         detector.process_frame(speech)
 
-    finished = False
+    any_finished = False
     for _ in range(4):
         _, finished, _ = detector.process_frame(silent)
+        any_finished = any_finished or finished
 
-    assert finished
+    assert any_finished

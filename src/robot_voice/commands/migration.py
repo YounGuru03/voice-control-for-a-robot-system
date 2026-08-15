@@ -5,7 +5,6 @@ from pathlib import Path
 
 from robot_voice.domain.models import CommandDefinition, CommandsConfig, RiskLevel
 
-
 RISK_BY_KEYWORD = {
     "emergency stop": RiskLevel.HIGH,
     "stop": RiskLevel.HIGH,

@@ -16,9 +16,16 @@ import queue
 import time
 import json
 import sys
+import warnings
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import traceback
+
+warnings.warn(
+    "tts_engine_v2.py is deprecated; use src/robot_voice/tts adapters.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 # TTS Status Messages (FIX #2: Minimized to essential keywords, max 3 words)
 # Removed redundant messages like "Processing" to reduce latency

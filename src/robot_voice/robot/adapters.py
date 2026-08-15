@@ -74,7 +74,7 @@ class SerialRobotAdapter:
     async def execute(self, command: RobotCommand) -> ExecutionResult:
         if self._serial is None:
             return ExecutionResult(ok=False, message="serial not connected")
-        payload = f"{command.intent}:{command.slots}\n".encode("utf-8")
+        payload = f"{command.intent}:{command.slots}\n".encode()
         self._serial.write(payload)
         return ExecutionResult(ok=True, message="serial command sent")
 
@@ -105,7 +105,8 @@ class HttpRobotAdapter:
     async def execute(self, command: RobotCommand) -> ExecutionResult:
         if not self._connected:
             await self.connect()
-        response = requests.post(
+        response = await asyncio.to_thread(
+            requests.post,
             f"{self._config.base_url.rstrip('/')}/execute",
             json=command.model_dump(mode="json"),
             timeout=self._config.timeout,
@@ -115,13 +116,21 @@ class HttpRobotAdapter:
         return ExecutionResult(ok=False, message=f"http error: {response.status_code}")
 
     async def emergency_stop(self) -> ExecutionResult:
-        response = requests.post(f"{self._config.base_url.rstrip('/')}/emergency_stop", timeout=self._config.timeout)
+        response = await asyncio.to_thread(
+            requests.post,
+            f"{self._config.base_url.rstrip('/')}/emergency_stop",
+            timeout=self._config.timeout,
+        )
         if response.ok:
             return ExecutionResult(ok=True, message="http emergency stop sent")
         return ExecutionResult(ok=False, message=f"http error: {response.status_code}")
 
     async def health_check(self) -> ExecutionResult:
-        response = requests.get(f"{self._config.base_url.rstrip('/')}/health", timeout=self._config.timeout)
+        response = await asyncio.to_thread(
+            requests.get,
+            f"{self._config.base_url.rstrip('/')}/health",
+            timeout=self._config.timeout,
+        )
         if response.ok:
             return ExecutionResult(ok=True, message="http robot healthy")
         return ExecutionResult(ok=False, message=f"http health failed: {response.status_code}")

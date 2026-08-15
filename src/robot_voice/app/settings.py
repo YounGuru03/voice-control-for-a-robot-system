@@ -4,8 +4,8 @@ import json
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
 from platformdirs import user_data_dir
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class VadSettings(BaseModel):

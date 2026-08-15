@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 import yaml
-from pydantic import ValidationError
 
 from robot_voice.domain.models import CommandDefinition, CommandsConfig
 
@@ -34,12 +33,12 @@ class CommandRepository:
         self._config = CommandsConfig(version=self._config.version, locale=self._config.locale, commands=commands)
 
     @staticmethod
-    def _read(path: Path) -> dict:
+    def _read(path: Path) -> dict[str, object]:
         raw = path.read_text(encoding="utf-8")
         if path.suffix.lower() in {".yml", ".yaml"}:
             loaded = yaml.safe_load(raw)
         else:
             loaded = json.loads(raw)
         if not isinstance(loaded, dict):
-            raise ValidationError.from_exception_data("CommandsConfig", [])
+            raise TypeError("commands file must be an object")
         return loaded

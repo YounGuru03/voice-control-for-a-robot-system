@@ -46,7 +46,8 @@ py -3.11 -m venv .venv
 ## Run tests
 
 ```powershell
-.\.venv\Scripts\python -m pytest
+$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
+.\.venv\Scripts\python -m pytest -p pytest_asyncio.plugin
 ```
 
 ## Build package

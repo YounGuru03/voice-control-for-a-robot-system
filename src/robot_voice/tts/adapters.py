@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import importlib
+from typing import Any
 
 
 class NullTtsBackend:
@@ -10,16 +12,15 @@ class NullTtsBackend:
 
 class LegacyTtsAdapter:
     def __init__(self) -> None:
-        self._engine = None
+        self._engine: Any = None
 
     def _ensure(self) -> None:
         if self._engine is not None:
             return
         try:
-            from tts_engine_v2 import TTSEngine
-
-            self._engine = TTSEngine()
-        except Exception:
+            module = importlib.import_module("tts_engine_v2")
+            self._engine = module.TTSEngine()
+        except (ImportError, OSError, RuntimeError):
             self._engine = False
 
     async def speak(self, text: str) -> None:

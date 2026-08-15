@@ -6,8 +6,15 @@ import os
 import sys
 import threading
 import time
+import warnings
 from pathlib import Path
 from typing import Optional, Dict, Any, List
+
+warnings.warn(
+    "model_manager.py is deprecated; use src/robot_voice/speech model backend services.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 # Supported Models Configuration
 SUPPORTED_MODELS = {

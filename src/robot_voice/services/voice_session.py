@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
-
 import numpy as np
 
 from robot_voice.app.settings import AppSettings
 from robot_voice.audio.endpoint import EndpointConfig, EndpointDetector
+from robot_voice.domain.interfaces import AsrBackend, IntentParser, RobotAdapter, TtsBackend
 from robot_voice.domain.models import (
     RobotCommand,
     VoiceEvent,
@@ -18,10 +17,10 @@ class VoiceSessionService:
     def __init__(
         self,
         settings: AppSettings,
-        intent_parser,
-        asr_backend,
-        robot_adapter,
-        tts_backend,
+        intent_parser: IntentParser,
+        asr_backend: AsrBackend,
+        robot_adapter: RobotAdapter,
+        tts_backend: TtsBackend,
     ) -> None:
         self._settings = settings
         self._intent_parser = intent_parser

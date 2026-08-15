@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from typing import Any
 
 import numpy as np
 
@@ -10,7 +11,7 @@ from robot_voice.app.settings import AsrSettings
 class FasterWhisperBackend:
     def __init__(self, settings: AsrSettings) -> None:
         self._settings = settings
-        self._model = None
+        self._model: Any = None
 
     def _ensure_model(self) -> None:
         if self._model is not None:
@@ -21,7 +22,7 @@ class FasterWhisperBackend:
             device = "cuda" if self._settings.use_gpu else "cpu"
             compute_type = "float16" if device == "cuda" else "int8"
             self._model = WhisperModel(self._settings.model_name, device=device, compute_type=compute_type)
-        except Exception:
+        except (ImportError, OSError, RuntimeError):
             self._model = False
 
     async def transcribe(self, audio: Iterable[float]) -> str:

@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -23,7 +26,8 @@ jobs:
       - name: Tests
         env:
           QT_QPA_PLATFORM: offscreen
-        run: python -m pytest
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+        run: python -m pytest -p pytest_asyncio.plugin
 
   windows-build:
     runs-on: windows-latest

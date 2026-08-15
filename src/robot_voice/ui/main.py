@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import sys
 from pathlib import Path
 
@@ -26,8 +27,8 @@ def main() -> int:
     if not engine.rootObjects():
         return 1
 
-    with loop:
-        return loop.run_forever()
+    asyncio.set_event_loop(loop)
+    return int(app.exec())
 
 
 if __name__ == "__main__":
